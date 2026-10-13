@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging / tooling
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Note: outputs/ is intentionally tracked because README.md embeds
+# figures from outputs/plots/. Original recordings in audio/ are tracked too.

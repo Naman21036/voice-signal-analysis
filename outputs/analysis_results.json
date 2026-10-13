@@ -1,0 +1,290 @@
+{
+  "course": "EC24313 Artificial Intelligence and Machine Learning",
+  "student": "Naman Gupta",
+  "config": {
+    "frame_ms": 25.0,
+    "hop_ms": 10.0,
+    "noise_percentile": 10.0,
+    "speech_percentile": 95.0,
+    "floor_margin_db": 12.0,
+    "speech_range_db": 35.0,
+    "min_silence_ms": 100.0,
+    "min_speech_ms": 30.0,
+    "edge_pad_ms": 100.0,
+    "max_internal_gap_ms": 400.0,
+    "kept_gap_ms": 200.0,
+    "fade_ms": 5.0,
+    "spec_nfft": 1024,
+    "spec_hop": 128,
+    "spec_range_db": 80.0,
+    "spec_max_hz": 8000.0
+  },
+  "recordings": {
+    "bit": {
+      "spoken_phrase_per_assignment": "BIT",
+      "content_verification": "Phrase taken from filename only; spoken content cannot be verified automatically.",
+      "metadata": {
+        "source_file": "Naman_BIT.wav",
+        "format": "WAV",
+        "subtype": "PCM_16",
+        "sampling_frequency_hz": 48000,
+        "sampling_frequency_source": "WAV header (fmt chunk) read via soundfile.info()",
+        "channels": 2,
+        "num_samples": 118656,
+        "duration_s": 2.472
+      },
+      "statistics": {
+        "peak_amplitude": 0.9522705078125,
+        "rms_amplitude": 0.16150687053390975,
+        "peak_db_fs": -0.4247933145987084,
+        "rms_db_fs": -15.83617995929761
+      },
+      "silence_detection": {
+        "method": "short-time RMS energy with adaptive percentile threshold",
+        "frame_ms": 25.0,
+        "hop_ms": 10.0,
+        "frame_samples": 1200,
+        "hop_samples": 480,
+        "min_silence_ms": 100.0,
+        "min_speech_ms": 30.0,
+        "silence": [
+          {
+            "start_s": 0.0,
+            "end_s": 0.1825,
+            "duration_s": 0.1825,
+            "type": "leading"
+          },
+          {
+            "start_s": 0.4725,
+            "end_s": 0.7225,
+            "duration_s": 0.25000000000000006,
+            "type": "internal"
+          },
+          {
+            "start_s": 1.7125,
+            "end_s": 1.8225,
+            "duration_s": 0.1100000000000001,
+            "type": "internal"
+          },
+          {
+            "start_s": 2.0925,
+            "end_s": 2.472,
+            "duration_s": 0.37950000000000017,
+            "type": "trailing"
+          }
+        ],
+        "speech": [
+          {
+            "start_s": 0.1825,
+            "end_s": 0.4725,
+            "duration_s": 0.29,
+            "type": "speech"
+          },
+          {
+            "start_s": 0.7225,
+            "end_s": 1.7125,
+            "duration_s": 0.9899999999999999,
+            "type": "speech"
+          },
+          {
+            "start_s": 1.8225,
+            "end_s": 2.0925,
+            "duration_s": 0.2699999999999998,
+            "type": "speech"
+          }
+        ],
+        "threshold_db": -32.62447957028895,
+        "noise_floor_db": -44.62447957028895,
+        "speech_level_db": -10.697686120472445
+      },
+      "trimming": {
+        "kept_segments": [
+          [
+            0.0825,
+            2.1925
+          ]
+        ],
+        "shortened_gaps": [],
+        "preserved_gaps": [
+          {
+            "start_s": 0.4725,
+            "end_s": 0.7225,
+            "duration_s": 0.25
+          },
+          {
+            "start_s": 1.7125,
+            "end_s": 1.8225,
+            "duration_s": 0.11
+          }
+        ],
+        "note": "internal gaps <= max_internal_gap_ms preserved to keep natural rhythm"
+      },
+      "reduction": {
+        "original_duration_s": 2.472,
+        "processed_duration_s": 2.11,
+        "removed_duration_s": 0.3620000000000001,
+        "percent_removed": 14.644012944983823
+      },
+      "processed_stats": {
+        "peak_amplitude": 0.9522705078125,
+        "rms_amplitude": 0.17477966116968496,
+        "peak_db_fs": -0.4247933145987084,
+        "rms_db_fs": -15.150182138295863
+      },
+      "processed_file": "outputs/processed_audio/Naman_BIT_processed.wav",
+      "validation": {
+        "file": "C:\\Users\\naman\\OneDrive\\Desktop\\assignment\\outputs\\processed_audio\\Naman_BIT_processed.wav",
+        "checks": {
+          "nonempty": true,
+          "all_finite": true,
+          "not_all_zero": true,
+          "sampling_frequency_preserved": true,
+          "channels_preserved": true,
+          "num_samples_matches_report": true,
+          "no_clipping": true
+        },
+        "passed": true,
+        "num_samples": 101280,
+        "sampling_frequency_hz": 48000,
+        "peak_amplitude": 0.9522705078125
+      },
+      "plots": {
+        "waveform": "outputs/plots/bit_waveform.png",
+        "silence_detection": "outputs/plots/bit_silence_detection.png",
+        "trimmed_waveform": "outputs/plots/bit_trimmed_waveform.png",
+        "spectrogram": "outputs/plots/bit_spectrogram.png",
+        "spectrogram_processed": "outputs/plots/bit_spectrogram_processed.png"
+      }
+    },
+    "name": {
+      "spoken_phrase_per_assignment": "Naman Gupta",
+      "content_verification": "Phrase taken from filename only; spoken content cannot be verified automatically.",
+      "metadata": {
+        "source_file": "Naman_Name.wav",
+        "format": "WAV",
+        "subtype": "PCM_16",
+        "sampling_frequency_hz": 48000,
+        "sampling_frequency_source": "WAV header (fmt chunk) read via soundfile.info()",
+        "channels": 2,
+        "num_samples": 87552,
+        "duration_s": 1.824
+      },
+      "statistics": {
+        "peak_amplitude": 0.947723388671875,
+        "rms_amplitude": 0.1666411251750089,
+        "peak_db_fs": -0.46636802755380297,
+        "rms_db_fs": -15.56435621309266
+      },
+      "silence_detection": {
+        "method": "short-time RMS energy with adaptive percentile threshold",
+        "frame_ms": 25.0,
+        "hop_ms": 10.0,
+        "frame_samples": 1200,
+        "hop_samples": 480,
+        "min_silence_ms": 100.0,
+        "min_speech_ms": 30.0,
+        "silence": [
+          {
+            "start_s": 0.0,
+            "end_s": 0.3425,
+            "duration_s": 0.3425,
+            "type": "leading"
+          },
+          {
+            "start_s": 1.0525,
+            "end_s": 1.1525,
+            "duration_s": 0.10000000000000009,
+            "type": "internal"
+          },
+          {
+            "start_s": 1.3325,
+            "end_s": 1.6925,
+            "duration_s": 0.3599999999999999,
+            "type": "internal"
+          }
+        ],
+        "speech": [
+          {
+            "start_s": 0.3425,
+            "end_s": 1.0525,
+            "duration_s": 0.71,
+            "type": "speech"
+          },
+          {
+            "start_s": 1.1525,
+            "end_s": 1.3325,
+            "duration_s": 0.17999999999999994,
+            "type": "speech"
+          },
+          {
+            "start_s": 1.6925,
+            "end_s": 1.824,
+            "duration_s": 0.13150000000000017,
+            "type": "speech"
+          }
+        ],
+        "threshold_db": -32.40646237854976,
+        "noise_floor_db": -44.40646237854976,
+        "speech_level_db": -10.946065594707015
+      },
+      "trimming": {
+        "kept_segments": [
+          [
+            0.2425,
+            1.824
+          ]
+        ],
+        "shortened_gaps": [],
+        "preserved_gaps": [
+          {
+            "start_s": 1.0525,
+            "end_s": 1.1525,
+            "duration_s": 0.1
+          },
+          {
+            "start_s": 1.3325,
+            "end_s": 1.6925,
+            "duration_s": 0.36
+          }
+        ],
+        "note": "internal gaps <= max_internal_gap_ms preserved to keep natural rhythm"
+      },
+      "reduction": {
+        "original_duration_s": 1.824,
+        "processed_duration_s": 1.5815,
+        "removed_duration_s": 0.24250000000000016,
+        "percent_removed": 13.294956140350886
+      },
+      "processed_stats": {
+        "peak_amplitude": 0.947723388671875,
+        "rms_amplitude": 0.17886208389047117,
+        "peak_db_fs": -0.46636802755380297,
+        "rms_db_fs": -14.949634273274125
+      },
+      "processed_file": "outputs/processed_audio/Naman_Name_processed.wav",
+      "validation": {
+        "file": "C:\\Users\\naman\\OneDrive\\Desktop\\assignment\\outputs\\processed_audio\\Naman_Name_processed.wav",
+        "checks": {
+          "nonempty": true,
+          "all_finite": true,
+          "not_all_zero": true,
+          "sampling_frequency_preserved": true,
+          "channels_preserved": true,
+          "num_samples_matches_report": true,
+          "no_clipping": true
+        },
+        "passed": true,
+        "num_samples": 75912,
+        "sampling_frequency_hz": 48000,
+        "peak_amplitude": 0.947723388671875
+      },
+      "plots": {
+        "waveform": "outputs/plots/name_waveform.png",
+        "silence_detection": "outputs/plots/name_silence_detection.png",
+        "trimmed_waveform": "outputs/plots/name_trimmed_waveform.png",
+        "spectrogram": "outputs/plots/name_spectrogram.png",
+        "spectrogram_processed": "outputs/plots/name_spectrogram_processed.png"
+      }
+    }
+  }
+}
