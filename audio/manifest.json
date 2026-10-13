@@ -1,0 +1,7 @@
+{
+  "note": "Declared (not verified) spoken content of each recording. No speech recognition has been run.",
+  "recordings": {
+    "bit":  {"file": "Naman_BIT.wav",  "declared_utterance": "BIT"},
+    "name": {"file": "Naman_Name.wav", "declared_utterance": "Naman Gupta"}
+  }
+}

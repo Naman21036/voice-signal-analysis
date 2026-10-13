@@ -2,18 +2,24 @@
 """EC24313 Artificial Intelligence and Machine Learning - Assignment 1.
 
 Analyses two voice recordings (time-domain waveform, silence detection,
-silence trimming, spectrogram) and writes plots, processed WAV files,
-analysis_results.json and analysis_report.md.
+conservative silence trimming, spectrogram) and writes plots, processed WAV
+files, analysis_results.json and analysis_report.md.
 
 Usage:  python assignment1.py [--audio-dir audio] [--output-dir outputs]
 All paths are relative to this file's directory unless absolute.
+
+Two detectors are implemented:
+  * detect_silence_baseline - the original single-threshold percentile detector
+    (kept unchanged so that old and new results can be compared);
+  * detect_silence          - the improved hysteresis detector (default).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import matplotlib
@@ -28,8 +34,9 @@ ROOT = Path(__file__).resolve().parent
 EPS = 1e-12
 DPI = 250
 
-# Recording key -> (filename keywords used for discovery, spoken phrase claimed by the assignment)
-RECORDINGS = {
+# Fallback identification when audio/manifest.json is absent:
+# key -> (filename keywords, declared utterance)
+DEFAULT_RECORDINGS = {
     "bit": (("bit",), "BIT"),
     "name": (("name", "naman_gupta", "gupta"), "Naman Gupta"),
 }
@@ -38,34 +45,72 @@ RECORDINGS = {
 # --------------------------------------------------------------------------- config
 @dataclass
 class Config:
-    frame_ms: float = 25.0          # analysis frame length
-    hop_ms: float = 10.0            # hop between frames
-    noise_percentile: float = 10.0  # percentile of frame RMS (dB) taken as noise floor
-    speech_percentile: float = 95.0  # percentile taken as speech level
-    floor_margin_db: float = 12.0   # threshold >= noise floor + this
-    speech_range_db: float = 35.0   # threshold >= speech level - this
-    min_silence_ms: float = 100.0   # shorter low-energy runs are treated as pauses inside speech
-    min_speech_ms: float = 30.0     # shorter active runs are treated as noise bursts
-    edge_pad_ms: float = 100.0       # padding kept around speech when trimming leading/trailing silence
-    max_internal_gap_ms: float = 400.0  # internal gaps longer than this are shortened
-    kept_gap_ms: float = 200.0      # length an over-long internal gap is shortened to
-    fade_ms: float = 5.0            # fade at splice points to avoid clicks
+    # --- framing (both detectors)
+    frame_ms: float = 25.0           # analysis frame length
+    hop_ms: float = 10.0             # hop between frames (60 % overlap)
+    min_silence_ms: float = 100.0    # shorter low-energy dips are bridged (pauses inside speech)
+    min_speech_ms: float = 30.0      # shorter active runs are discarded as transients
+    # --- baseline detector (single threshold, percentile noise estimate)
+    noise_percentile: float = 10.0
+    speech_percentile: float = 95.0
+    floor_margin_db: float = 12.0    # threshold >= noise floor + this
+    speech_range_db: float = 35.0    # threshold >= speech level - this
+    # --- improved detector (hysteresis, robust noise estimate)
+    noise_exclude_db: float = -90.0  # frames below this (digital zero) are excluded from the noise estimate
+    noise_fraction: float = 0.1      # noise floor = median of the quietest 10 % of the remaining frames
+    low_margin_db: float = 8.0       # low (hold) threshold  = noise + this
+    high_margin_db: float = 20.0     # high (onset) threshold = noise + this, capped below the speech level
+    level_gap_db: float = 10.0       # high threshold is kept at least this far below the speech level
+    min_snr_db: float = 15.0         # below this level-noise separation nothing is declared silent
+    min_core_ms: float = 30.0        # time above the high threshold needed to call a run confident speech
+    max_extension_ms: float = 150.0  # confident speech extends at most this far beyond its high-threshold core
+                                     # (soft onsets/decays); further low-level activity is 'ambiguous'
+    trim_ambiguous: bool = False     # False (default): ambiguous regions are preserved; True: treated as removable
+    # --- trimming
+    edge_pad_ms: float = 100.0       # context kept before the first / after the last active region
+    max_internal_gap_ms: float = 400.0  # confident-silence gaps between two speech regions longer than this are shortened
+    kept_gap_ms: float = 200.0       # length such a gap is shortened to
+    fade_ms: float = 5.0             # fade at every cut to avoid clicks
+    # --- spectrogram
     spec_nfft: int = 1024
     spec_hop: int = 128
     spec_range_db: float = 80.0
     spec_max_hz: float = 8000.0
 
 
-# --------------------------------------------------------------------------- loading
-def discover_recordings(audio_dir: Path) -> dict[str, Path]:
-    """Locate the two recordings by filename (searches subdirectories)."""
+# --------------------------------------------------------------------------- loading / identity
+def sha256_of(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def discover_recordings(audio_dir: Path) -> dict[str, dict]:
+    """Return {key: {path, declared_utterance, identity_source}}.
+
+    Uses audio_dir/manifest.json when present (explicit file -> utterance mapping),
+    otherwise falls back to filename keywords. Searches subdirectories.
+    """
+    if not audio_dir.is_dir():
+        raise FileNotFoundError(f"Audio directory not found: {audio_dir}")
+    manifest = audio_dir / "manifest.json"
+    found: dict[str, dict] = {}
+    if manifest.is_file():
+        entries = json.loads(manifest.read_text(encoding="utf-8"))["recordings"]
+        for key, e in entries.items():
+            p = audio_dir / e["file"]
+            if not p.is_file():
+                raise FileNotFoundError(f"Manifest lists '{e['file']}' for '{key}' but it does not exist in {audio_dir}")
+            found[key] = {"path": p, "declared_utterance": e["declared_utterance"], "identity_source": "manifest.json"}
+        return found
     files = sorted(p for p in audio_dir.rglob("*") if p.suffix.lower() in {".wav", ".flac", ".ogg"})
-    found: dict[str, Path] = {}
-    for key, (keywords, _) in RECORDINGS.items():
+    for key, (keywords, phrase) in DEFAULT_RECORDINGS.items():
         matches = [p for p in files if any(k in p.stem.lower() for k in keywords)]
         if len(matches) != 1:
             raise FileNotFoundError(f"Expected exactly one '{key}' recording in {audio_dir}, found {len(matches)}")
-        found[key] = matches[0]
+        found[key] = {"path": matches[0], "declared_utterance": phrase, "identity_source": "filename keyword"}
     return found
 
 
@@ -76,7 +121,8 @@ def load_audio(path: Path) -> tuple[np.ndarray, int]:
 
 
 def to_mono(data: np.ndarray) -> np.ndarray:
-    return data.mean(axis=1)
+    """Channel average (used for plotting spectrograms and the baseline detector only)."""
+    return data if data.ndim == 1 else data.mean(axis=1)
 
 
 def get_metadata(path: Path, data: np.ndarray, fs: int) -> dict:
@@ -101,16 +147,23 @@ def signal_stats(data: np.ndarray) -> dict:
             "peak_db_fs": float(20 * np.log10(peak + EPS)), "rms_db_fs": float(20 * np.log10(rms + EPS))}
 
 
-# --------------------------------------------------------------------------- silence detection
+# --------------------------------------------------------------------------- frame analysis
 def frame_rms_db(x: np.ndarray, frame: int, hop: int) -> np.ndarray:
-    """Short-time RMS in dB full scale. Signals shorter than a frame give one frame."""
+    """Short-time RMS in dB full scale.
+
+    x may be 1-D or (samples, channels); energy is pooled over all channels, so
+    out-of-phase channels cannot cancel as they would in a channel average.
+    Signals shorter than one frame are zero-padded to give a single frame.
+    """
     if x.size == 0:
         return np.array([])
-    if x.size < frame:
-        x = np.pad(x, (0, frame - x.size))
-    n_frames = 1 + (x.size - frame) // hop
+    if x.shape[0] < frame:
+        x = np.pad(x, [(0, frame - x.shape[0])] + [(0, 0)] * (x.ndim - 1))
+    n_frames = 1 + (x.shape[0] - frame) // hop
     idx = np.arange(frame)[None, :] + hop * np.arange(n_frames)[:, None]
-    return 20 * np.log10(np.sqrt(np.mean(x[idx] ** 2, axis=1)) + EPS)
+    seg = x[idx]  # (n_frames, frame) or (n_frames, frame, channels)
+    power = np.mean(seg ** 2, axis=tuple(range(1, seg.ndim)))
+    return 10 * np.log10(power + EPS)
 
 
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
@@ -121,39 +174,47 @@ def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
     return list(zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1)))
 
 
-def detect_silence(x: np.ndarray, fs: int, cfg: Config) -> dict:
-    """Adaptive short-time-energy silence detector.
+def _region(t0: float, t1: float, kind: str) -> dict:
+    return {"start_s": float(t0), "end_s": float(t1), "duration_s": float(t1 - t0), "type": kind}
 
-    threshold_dB = max(noise_floor + floor_margin, speech_level - speech_range)
-    where noise_floor / speech_level are low / high percentiles of the frame RMS.
-    Returns silent and speech intervals in seconds plus detector internals.
+
+def _empty_result(method: str, cfg: Config, frame: int, hop: int) -> dict:
+    return {"method": method, "frame_ms": cfg.frame_ms, "hop_ms": cfg.hop_ms, "frame_samples": frame,
+            "hop_samples": hop, "min_silence_ms": cfg.min_silence_ms, "min_speech_ms": cfg.min_speech_ms,
+            "silence": [], "speech": [], "ambiguous": [], "active": [], "flags": [],
+            "threshold_db": None, "low_threshold_db": None, "high_threshold_db": None,
+            "noise_floor_db": None, "speech_level_db": None}
+
+
+def _frame_params(fs: int, cfg: Config) -> tuple[int, int]:
+    return max(1, int(round(cfg.frame_ms * fs / 1000))), max(1, int(round(cfg.hop_ms * fs / 1000)))
+
+
+# --------------------------------------------------------------------------- baseline detector (unchanged behaviour)
+def detect_silence_baseline(x: np.ndarray, fs: int, cfg: Config) -> dict:
+    """Original detector: threshold = max(P10 + margin, P95 - range) on the mono mix.
+
+    Kept for comparison. Frame i is attributed to its centre time.
     """
+    x = to_mono(x)
     duration = x.size / fs if fs else 0.0
-    frame = max(1, int(round(cfg.frame_ms * fs / 1000)))
-    hop = max(1, int(round(cfg.hop_ms * fs / 1000)))
-    result = {"method": "short-time RMS energy with adaptive percentile threshold",
-              "frame_ms": cfg.frame_ms, "hop_ms": cfg.hop_ms, "frame_samples": frame, "hop_samples": hop,
-              "min_silence_ms": cfg.min_silence_ms, "min_speech_ms": cfg.min_speech_ms,
-              "silence": [], "speech": [], "threshold_db": None, "noise_floor_db": None, "speech_level_db": None}
-    db = frame_rms_db(x, frame, hop)
-    if db.size == 0 or np.max(np.abs(x)) < 1e-9:  # empty or digital silence
+    frame, hop = _frame_params(fs, cfg)
+    result = _empty_result("baseline: single percentile threshold on mono mix", cfg, frame, hop)
+    db = frame_rms_db(x, frame, hop) if x.size else np.array([])
+    if db.size == 0 or np.max(np.abs(x)) < 1e-9:
         if duration > 0:
             result["silence"] = [_region(0.0, duration, "entire recording")]
         return result
-
     floor = float(np.percentile(db, cfg.noise_percentile))
     level = float(np.percentile(db, cfg.speech_percentile))
     thr = max(floor + cfg.floor_margin_db, level - cfg.speech_range_db)
     active = db > thr
-
-    hop_s = hop / fs
-    # frame i covers [i*hop, i*hop+frame); treat it as speaking for its centre hop-sized span
     min_sil = max(1, int(round(cfg.min_silence_ms / cfg.hop_ms)))
     min_sp = max(1, int(round(cfg.min_speech_ms / cfg.hop_ms)))
-    for s, e in _runs(~active):            # short pauses inside speech are not silence
+    for s, e in _runs(~active):
         if e - s < min_sil and s > 0 and e < active.size:
             active[s:e] = True
-    for s, e in _runs(active):             # very short bursts are noise, not speech
+    for s, e in _runs(active):
         if e - s < min_sp:
             active[s:e] = False
 
@@ -162,68 +223,199 @@ def detect_silence(x: np.ndarray, fs: int, cfg: Config) -> dict:
         t1 = duration if i1 >= active.size else (i1 * hop + frame / 2) / fs
         return float(t0), float(min(t1, duration))
 
-    sil = _runs(~active)
     n = active.size
-    for s, e in sil:
+    for s, e in _runs(~active):
         t0, t1 = to_time(s, e)
         kind = "leading" if s == 0 else "trailing" if e == n else "internal"
         if t1 - t0 >= cfg.min_silence_ms / 1000 or kind != "internal":
             result["silence"].append(_region(t0, t1, kind))
     result["speech"] = [_region(*to_time(s, e), "speech") for s, e in _runs(active)]
+    result["active"] = list(result["speech"])
     result.update(threshold_db=float(thr), noise_floor_db=floor, speech_level_db=level,
                   frame_rms_db=db.tolist(), frame_times_s=((np.arange(n) * hop + frame / 2) / fs).tolist())
     return result
 
 
-def _region(t0: float, t1: float, kind: str) -> dict:
-    return {"start_s": float(t0), "end_s": float(t1), "duration_s": float(t1 - t0), "type": kind}
+# --------------------------------------------------------------------------- improved detector
+def detect_silence(x: np.ndarray, fs: int, cfg: Config) -> dict:
+    """Hysteresis energy detector with a robust noise estimate and an explicit 'ambiguous' class.
+
+    1. Frame RMS (dB) pooled over all channels (25 ms frames, 10 ms hop).
+    2. Noise floor = median of the quietest `noise_fraction` of frames, after excluding digital-zero
+       frames (no information); spread = MAD of those frames. Speech level = 95th percentile.
+    3. low  threshold = noise + low_margin_db     (activity is held above it)
+       high threshold = noise + high_margin_db, kept >= level_gap_db below the speech level.
+       The MAD of the quiet frames is reported as a stationarity check but does not set thresholds: on the
+       real recordings it was inflated by non-stationary noise and pushed the threshold into soft speech.
+    4. Frames above `low` form active runs; low dips shorter than min_silence_ms are bridged, runs
+       shorter than min_speech_ms are discarded.
+    5. Hysteresis: confident SPEECH needs at least min_core_ms of frames above `high`; it is then held
+       through frames above `low`, but extends at most max_extension_ms beyond the high-threshold core
+       (soft onsets and decays). Surviving low-level activity outside that (or in runs that never reach
+       `high`) is AMBIGUOUS (breath, noise or weak speech) and is not trimmed away by default.
+    6. If level - noise < min_snr_db no region is declared silent (everything non-zero is ambiguous).
+    Frame i owns the span [centre - hop/2, centre + hop/2]; region boundaries use those spans.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    n_samples = x.shape[0]
+    duration = n_samples / fs if fs else 0.0
+    frame, hop = _frame_params(fs, cfg)
+    result = _empty_result("hysteresis RMS energy, robust noise estimate, ambiguous class", cfg, frame, hop)
+    result.update(min_core_ms=cfg.min_core_ms)
+    db = frame_rms_db(x, frame, hop) if n_samples else np.array([])
+    if db.size == 0 or np.max(np.abs(x)) < 1e-9:
+        if duration > 0:
+            result["silence"] = [_region(0.0, duration, "entire recording")]
+        return result
+
+    valid = db > cfg.noise_exclude_db
+    dv = db[valid] if valid.sum() >= 5 else db
+    k = max(3, int(round(cfg.noise_fraction * dv.size)))
+    quiet = np.sort(dv)[:k]
+    noise = float(np.median(quiet))
+    mad = float(1.4826 * np.median(np.abs(quiet - noise)))
+    level = float(np.percentile(dv, cfg.speech_percentile))
+    low = noise + cfg.low_margin_db
+    high = max(min(noise + cfg.high_margin_db, level - cfg.level_gap_db), low + 3.0)
+    snr = level - noise
+    if snr < cfg.min_snr_db:
+        result["flags"].append(f"low separation between speech level and noise floor ({snr:.1f} dB < {cfg.min_snr_db} dB): "
+                               "no region declared silent")
+        low, high = cfg.noise_exclude_db, np.inf
+
+    active = db > low
+    n = active.size
+    min_sil = max(1, int(round(cfg.min_silence_ms / cfg.hop_ms)))
+    min_sp = max(1, int(round(cfg.min_speech_ms / cfg.hop_ms)))
+    min_core = max(1, int(round(cfg.min_core_ms / cfg.hop_ms)))
+    for s, e in _runs(~active):            # bridge short dips between active frames
+        if e - s < min_sil and s > 0 and e < n:
+            active[s:e] = True
+    ext = max(0, int(round(cfg.max_extension_ms / cfg.hop_ms)))
+    runs = []
+    for s, e in _runs(active):
+        if e - s < min_sp:                 # transient
+            active[s:e] = False
+            continue
+        cores = [(a, b) for a, b in _runs(db[s:e] > high) if b - a >= min_core]
+        if not cores:
+            runs.append((s, e, "ambiguous"))
+            continue
+        sp0, sp1 = max(s, s + cores[0][0] - ext), min(e, s + cores[-1][1] + ext)
+        if sp0 - s >= min_sp:              # weak lead-in beyond the allowed onset extension
+            runs.append((s, sp0, "ambiguous"))
+        else:
+            sp0 = s
+        tail = e - sp1
+        runs.append((sp0, sp1 if tail >= min_sp else e, "speech"))
+        if tail >= min_sp:
+            runs.append((sp1, e, "ambiguous"))
+
+    def span(i0: int, i1: int) -> tuple[float, float]:
+        t0 = 0.0 if i0 == 0 else max(0.0, (i0 * hop + frame / 2 - hop / 2) / fs)
+        t1 = duration if i1 >= n else min(duration, ((i1 - 1) * hop + frame / 2 + hop / 2) / fs)
+        return float(t0), float(t1)
+
+    for s, e, kind in runs:
+        reg = _region(*span(s, e), kind)
+        result["active"].append(reg)
+        result["speech" if kind == "speech" else "ambiguous"].append(reg)
+    # silence = complement of the active regions
+    edges = [0.0] + [t for r in result["active"] for t in (r["start_s"], r["end_s"])] + [duration]
+    for i in range(0, len(edges), 2):
+        t0, t1 = edges[i], edges[i + 1]
+        if t1 - t0 <= 1e-9:
+            continue
+        kind = "leading" if i == 0 else "trailing" if i == len(edges) - 2 else "internal"
+        if not result["active"]:
+            kind = "entire recording"
+        result["silence"].append(_region(t0, t1, kind))
+    flags = result["flags"]
+    if result["ambiguous"]:
+        flags.append(f"{len(result['ambiguous'])} ambiguous low-level region(s) kept: level is above the noise floor but "
+                     "never reaches the speech-onset threshold")
+    result.update(threshold_db=float(low), low_threshold_db=float(low),
+                  high_threshold_db=None if not np.isfinite(high) else float(high),
+                  noise_floor_db=noise, noise_mad_db=mad, speech_level_db=level, level_minus_noise_db=float(snr),
+                  frame_rms_db=db.tolist(), frame_times_s=((np.arange(n) * hop + frame / 2) / fs).tolist())
+    return result
 
 
 # --------------------------------------------------------------------------- trimming
 def trim_silence(data: np.ndarray, fs: int, detection: dict, cfg: Config) -> tuple[np.ndarray, dict]:
-    """Remove leading/trailing silence (keeping padding) and shorten over-long internal gaps.
+    """Conservative trimming; never modifies `data`.
 
-    Never modifies `data`; returns a new array with the original channel layout and rate.
+    * Leading/trailing: cut to the first/last ACTIVE region (speech or ambiguous) minus/plus padding.
+    * Internal: a gap is shortened only if it is longer than max_internal_gap_ms AND both neighbouring
+      regions are confident speech. Gaps next to ambiguous regions are always preserved.
+    * Every cut gets a short fade; joins are checked for discontinuities.
     """
     n = data.shape[0]
-    speech = detection["speech"]
-    if not speech:  # nothing to trim safely
+    active = detection.get("active") or [{**r, "type": "speech"} for r in detection.get("speech", [])]
+    if cfg.trim_ambiguous:
+        active = [r for r in active if r["type"] == "speech"]
+    if not active or n == 0:
         return data.copy(), {"kept_segments": [[0.0, n / fs if fs else 0.0]], "shortened_gaps": [],
-                             "preserved_gaps": [], "note": "no speech detected; audio left unchanged"}
+                             "preserved_gaps": [], "join_samples": [],
+                             "note": "no speech detected; audio left unchanged"}
     pad = int(round(cfg.edge_pad_ms * fs / 1000))
-    start = max(0, int(round(speech[0]["start_s"] * fs)) - pad)
-    end = min(n, int(round(speech[-1]["end_s"] * fs)) + pad)
+    start = max(0, int(round(active[0]["start_s"] * fs)) - pad)
+    end = min(n, int(round(active[-1]["end_s"] * fs)) + pad)
+    if end <= start:
+        return data.copy(), {"kept_segments": [[0.0, n / fs]], "shortened_gaps": [], "preserved_gaps": [],
+                             "join_samples": [], "note": "invalid boundaries; audio left unchanged"}
 
     keep: list[list[int]] = [[start, end]]
     shortened, preserved = [], []
     half = int(round(cfg.kept_gap_ms * fs / 2000))
-    for a, b in zip(speech[:-1], speech[1:]):
+    for a, b in zip(active[:-1], active[1:]):
         g0, g1 = int(round(a["end_s"] * fs)), int(round(b["start_s"] * fs))
-        gap_ms = (g1 - g0) * 1000 / fs
-        rec = {"start_s": g0 / fs, "end_s": g1 / fs, "duration_s": (g1 - g0) / fs}
-        if gap_ms > cfg.max_internal_gap_ms and g1 - g0 > 2 * half:
-            keep = [k for k in keep]  # split the kept range around the removed middle
+        rec = {"start_s": g0 / fs, "end_s": g1 / fs, "duration_s": (g1 - g0) / fs,
+               "neighbours": [a["type"], b["type"]]}
+        long_enough = (g1 - g0) * 1000 / fs > cfg.max_internal_gap_ms and g1 - g0 > 2 * half
+        if long_enough and a["type"] == b["type"] == "speech":
             last = keep[-1]
             keep[-1] = [last[0], g0 + half]
             keep.append([g1 - half, last[1]])
+            rec["new_duration_s"] = 2 * half / fs
+            rec["removed_s"] = (g1 - g0 - 2 * half) / fs
             shortened.append(rec)
         else:
+            rec["reason"] = ("gap not longer than max_internal_gap_ms" if not long_enough
+                             else "neighbour is ambiguous low-level activity")
             preserved.append(rec)
 
     fade = int(round(cfg.fade_ms * fs / 1000))
-    pieces = []
+    pieces, joins, total = [], [], 0
     for i, (s, e) in enumerate(keep):
         seg = data[s:e].copy()
-        if i > 0 and seg.shape[0] > 2 * fade > 0:
-            seg[:fade] *= np.linspace(0, 1, fade)[:, None]
-        if i < len(keep) - 1 and seg.shape[0] > 2 * fade > 0:
-            seg[-fade:] *= np.linspace(1, 0, fade)[:, None]
+        fade_in = i > 0 or s > 0
+        fade_out = i < len(keep) - 1 or e < n
+        if seg.shape[0] > 2 * fade > 0:
+            if fade_in:
+                seg[:fade] *= np.linspace(0, 1, fade)[:, None]
+            if fade_out:
+                seg[-fade:] *= np.linspace(1, 0, fade)[:, None]
+        if i > 0:
+            joins.append(total)
+        total += seg.shape[0]
         pieces.append(seg)
     out = np.concatenate(pieces, axis=0)
     info = {"kept_segments": [[s / fs, e / fs] for s, e in keep], "shortened_gaps": shortened,
-            "preserved_gaps": preserved,
-            "note": "internal gaps <= max_internal_gap_ms preserved to keep natural rhythm"}
+            "preserved_gaps": preserved, "join_samples": joins,
+            "note": "gaps are shortened only between two confident-speech regions and only when longer than max_internal_gap_ms"}
     return out, info
+
+
+def check_joins(proc: np.ndarray, joins: list[int]) -> dict:
+    """Largest sample-to-sample step at each edit join versus the 99.9th percentile step of the whole file."""
+    if proc.shape[0] < 2:
+        return {"checked": 0, "ok": True}
+    steps = np.abs(np.diff(proc, axis=0)).max(axis=1)
+    ref = float(np.percentile(steps, 99.9))
+    join_steps = [float(steps[j - 1]) for j in joins if 0 < j < proc.shape[0]]
+    return {"checked": len(join_steps), "join_max_step": max(join_steps) if join_steps else 0.0,
+            "reference_p99_9_step": ref, "ok": all(s <= max(ref, 1e-4) for s in join_steps)}
 
 
 def duration_reduction(orig_samples: int, new_samples: int, fs: int) -> dict:
@@ -232,17 +424,41 @@ def duration_reduction(orig_samples: int, new_samples: int, fs: int) -> dict:
             "percent_removed": (o - p) / o * 100 if o > 0 else 0.0}
 
 
-def validate_wav(path: Path, expected_fs: int, expected_channels: int, expected_samples: int) -> dict:
+def validate_wav(path: Path, expected_fs: int, expected_channels: int, expected: np.ndarray,
+                 original_peak: float) -> dict:
+    """Re-open the saved file and compare it with the in-memory processed audio and the metadata."""
     data, fs = sf.read(str(path), dtype="float64", always_2d=True)
-    checks = {"nonempty": data.size > 0, "all_finite": bool(np.all(np.isfinite(data))) if data.size else False,
+    lsb = 1 / 32768
+    same_shape = data.shape == expected.shape
+    checks = {"reopened": True, "nonempty": data.size > 0,
+              "all_finite": bool(np.all(np.isfinite(data))) if data.size else False,
               "not_all_zero": bool(np.any(data != 0)),
               "sampling_frequency_preserved": fs == expected_fs,
               "channels_preserved": data.shape[1] == expected_channels,
-              "num_samples_matches_report": data.shape[0] == expected_samples,
-              "no_clipping": bool(np.max(np.abs(data)) < 1.0) if data.size else False}
+              "num_samples_matches_report": data.shape[0] == expected.shape[0],
+              "matches_processed_array_within_1lsb": bool(same_shape and np.max(np.abs(data - expected)) <= lsb * 1.01),
+              "no_clipped_samples": bool(np.sum(np.abs(data) >= 0.9999) == 0) if data.size else False,
+              "peak_not_above_original": bool(np.max(np.abs(data)) <= original_peak + lsb) if data.size else False}
     return {"file": str(path), "checks": checks, "passed": all(checks.values()),
             "num_samples": int(data.shape[0]), "sampling_frequency_hz": int(fs),
             "peak_amplitude": float(np.max(np.abs(data))) if data.size else 0.0}
+
+
+# --------------------------------------------------------------------------- spectrogram
+def compute_spectrogram(x: np.ndarray, fs: int, cfg: Config, nfft: int | None = None, hop: int | None = None):
+    """STFT power spectral density (Hann window). nfft is reduced for very short signals."""
+    if x.size < 8:
+        x = np.pad(x, (0, 8 - x.size))
+    nperseg = int(min(nfft or cfg.spec_nfft, x.size))
+    h = max(1, min(hop or cfg.spec_hop, nperseg // 2))
+    f, t, sxx = signal.spectrogram(x, fs=fs, window="hann", nperseg=nperseg, noverlap=nperseg - h,
+                                   scaling="spectrum", mode="psd")
+    return f, t, sxx
+
+
+def spectrogram_reference(x: np.ndarray, fs: int, cfg: Config) -> float:
+    """0 dB reference: peak spectrogram power of the given (original) recording."""
+    return float(compute_spectrogram(to_mono(x), fs, cfg)[2].max()) + EPS
 
 
 # --------------------------------------------------------------------------- plotting
@@ -251,12 +467,14 @@ def _style() -> None:
                          "grid.alpha": 0.3, "figure.dpi": 100, "savefig.dpi": DPI})
 
 
-def _plot_channels(ax, data: np.ndarray, fs: int, t_offset: float = 0.0) -> None:
-    t = np.arange(data.shape[0]) / fs + t_offset
+def _plot_channels(ax, data: np.ndarray, fs: int, t0: float = 0.0, t1: float | None = None) -> None:
+    i0 = int(t0 * fs)
+    i1 = data.shape[0] if t1 is None else int(t1 * fs)
+    t = np.arange(i0, i1) / fs
     colors = ["#1f77b4", "#d95f02"]
     for c in range(data.shape[1]):
         label = ("Left", "Right")[c] if data.shape[1] == 2 else (f"Channel {c + 1}" if data.shape[1] > 1 else "Mono")
-        ax.plot(t, data[:, c], lw=0.6, color=colors[c % 2], alpha=0.85 if c == 0 else 0.6, label=label)
+        ax.plot(t, data[i0:i1, c], lw=0.6, color=colors[c % 2], alpha=0.85 if c == 0 else 0.6, label=label)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude (full scale = 1)")
 
@@ -272,25 +490,81 @@ def plot_waveform(data, fs, title, path: Path) -> None:
     plt.close(fig)
 
 
-def plot_silence(data, fs, det, title, path: Path) -> None:
-    fig, (ax, ax2) = plt.subplots(2, 1, figsize=(10, 6.5), sharex=True, gridspec_kw={"height_ratios": [3, 1.6]})
-    _plot_channels(ax, data, fs)
-    for i, r in enumerate(det["silence"]):
-        ax.axvspan(r["start_s"], r["end_s"], color="red", alpha=0.2, label="Silence" if i == 0 else None)
-    for i, r in enumerate(det["speech"]):
-        ax.axvspan(r["start_s"], r["end_s"], color="green", alpha=0.1, label="Speech (active)" if i == 0 else None)
-    ax.set_title(f"{title} - silence detection")
-    ax.legend(loc="upper right", ncol=2)
+_CLASS_COLORS = {"silence": "red", "speech": "green", "ambiguous": "orange"}
+
+
+def _shade(ax, det, labels: bool = True) -> None:
+    for kind, regs in (("silence", det["silence"]), ("speech", det["speech"]), ("ambiguous", det.get("ambiguous", []))):
+        for i, r in enumerate(regs):
+            ax.axvspan(r["start_s"], r["end_s"], color=_CLASS_COLORS[kind], alpha=0.2 if kind != "speech" else 0.1,
+                       label=({"silence": "Silence", "speech": "Speech (confident)",
+                               "ambiguous": "Ambiguous low-level (kept)"}[kind] if (i == 0 and labels) else None))
+
+
+def _plot_rms(ax, det) -> None:
     if det.get("frame_times_s"):
-        ax2.plot(det["frame_times_s"], det["frame_rms_db"], color="k", lw=1, label="Frame RMS")
-        ax2.axhline(det["threshold_db"], color="red", ls="--", label=f"Threshold ({det['threshold_db']:.1f} dB)")
-        ax2.axhline(det["noise_floor_db"], color="gray", ls=":", label=f"Noise floor ({det['noise_floor_db']:.1f} dB)")
-        ax2.legend(loc="lower right", ncol=3, fontsize=9)
+        ax.plot(det["frame_times_s"], det["frame_rms_db"], color="k", lw=1, label="Frame RMS")
+        if det.get("high_threshold_db") is not None:
+            ax.axhline(det["high_threshold_db"], color="green", ls="--", label=f"High / onset ({det['high_threshold_db']:.1f} dB)")
+        ax.axhline(det["threshold_db"], color="red", ls="--", label=f"Low / hold ({det['threshold_db']:.1f} dB)")
+        ax.axhline(det["noise_floor_db"], color="gray", ls=":", label=f"Noise floor ({det['noise_floor_db']:.1f} dB)")
+    ax.set_ylabel("Frame RMS (dBFS)")
+    ax.set_ylim(-80, 0)
+
+
+def plot_silence(data, fs, det, title, path: Path) -> None:
+    fig, (ax, ax2) = plt.subplots(2, 1, figsize=(10, 6.8), sharex=True, gridspec_kw={"height_ratios": [3, 1.7]})
+    _plot_channels(ax, data, fs)
+    _shade(ax, det)
+    ax.set_title(f"{title} - silence detection (hysteresis detector)")
+    ax.legend(loc="upper right", ncol=2, fontsize=9)
+    _plot_rms(ax2, det)
+    ax2.legend(loc="lower right", ncol=2, fontsize=8)
     ax2.set_xlabel("Time (s)")
-    ax2.set_ylabel("Frame RMS (dBFS)")
-    ax2.set_ylim(-80, 0)
     ax2.set_xlim(0, data.shape[0] / fs)
     fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+def plot_boundary_review(data, fs, det, title, path: Path, cfg: Config, ref_power: float) -> None:
+    """Zoomed waveform / frame-RMS / spectrogram around the first and last speech boundary."""
+    dur = data.shape[0] / fs
+    core = det["speech"] or det["active"]
+    if not core:
+        return
+    wins = [(0.0, min(dur, core[0]["start_s"] + 0.25)), (max(0.0, core[-1]["end_s"] - 0.25), dur)]
+    f, t, sxx = compute_spectrogram(to_mono(data), fs, cfg)
+    db = 10 * np.log10(sxx / ref_power + EPS)
+    fig, axes = plt.subplots(3, 2, figsize=(13, 10), constrained_layout=True)
+    for col, (w0, w1) in enumerate(wins):
+        a0, a1, a2 = axes[0, col], axes[1, col], axes[2, col]
+        _plot_channels(a0, data, fs, w0, w1)
+        _shade(a0, det, labels=col == 0)
+        a0.set_xlim(w0, w1)
+        a0.set_title(f"{'Start' if col == 0 else 'End'} of recording ({w0:.2f}-{w1:.2f} s)")
+        _plot_rms(a1, det)
+        a1.set_xlim(w0, w1)
+        for r in det["speech"]:
+            a1.axvspan(r["start_s"], r["end_s"], color="green", alpha=0.08)
+        for r in det.get("ambiguous", []):
+            a1.axvspan(r["start_s"], r["end_s"], color="orange", alpha=0.2)
+        a1.set_xlabel("Time (s)")
+        m = a2.pcolormesh(t, f, db, shading="auto", cmap="magma", vmin=-cfg.spec_range_db, vmax=0)
+        a2.set_xlim(w0, w1)
+        a2.set_ylim(0, min(cfg.spec_max_hz, fs / 2))
+        a2.set_xlabel("Time (s)")
+        a2.set_ylabel("Frequency (Hz)")
+        a2.grid(False)
+        for r in det["active"]:
+            for tt in (r["start_s"], r["end_s"]):
+                if w0 <= tt <= w1:
+                    a2.axvline(tt, color="cyan", lw=0.8, ls="--")
+        if col == 1:
+            fig.colorbar(m, ax=axes[2, :], label="Power (dB re. original peak)", pad=0.01)
+    axes[0, 0].legend(loc="upper left", fontsize=8)
+    axes[1, 0].legend(loc="lower left", fontsize=7)
+    fig.suptitle(f"{title} - boundary review (cyan dashed = detected active-region edges)", fontsize=14)
     fig.savefig(path)
     plt.close(fig)
 
@@ -313,21 +587,11 @@ def plot_comparison(orig, proc, fs, title, path: Path) -> None:
     plt.close(fig)
 
 
-def compute_spectrogram(x: np.ndarray, fs: int, cfg: Config):
-    """STFT power spectrogram (Hann window). nfft is reduced for very short signals."""
-    if x.size < 8:  # too short for an STFT: zero-pad so the call cannot fail
-        x = np.pad(x, (0, 8 - x.size))
-    nperseg = int(min(cfg.spec_nfft, x.size))
-    hop = max(1, min(cfg.spec_hop, nperseg // 2))
-    f, t, sxx = signal.spectrogram(x, fs=fs, window="hann", nperseg=nperseg, noverlap=nperseg - hop,
-                                   scaling="spectrum", mode="psd")
-    return f, t, sxx
-
-
-def plot_spectrogram(panels: list[tuple[str, np.ndarray]], fs: int, title: str, path: Path, cfg: Config) -> None:
-    """One or more spectrograms sharing the same dB colour scale (referenced to the first panel's maximum)."""
+def plot_spectrogram(panels: list[tuple[str, np.ndarray]], fs: int, title: str, path: Path, cfg: Config,
+                     ref_power: float | None = None) -> None:
+    """Spectrograms on a shared dB scale. 0 dB = ref_power (default: the strongest panel's peak power)."""
     specs = [compute_spectrogram(to_mono(d), fs, cfg) for _, d in panels]
-    ref = max(float(s[2].max()) for s in specs) + EPS
+    ref = ref_power if ref_power is not None else max(float(s[2].max()) for s in specs) + EPS
     fmax = min(cfg.spec_max_hz, fs / 2)
     fig, axes = plt.subplots(len(panels), 1, figsize=(10, 4.2 * len(panels)), squeeze=False)
     for ax, (name, d), (f, t, sxx) in zip(axes[:, 0], panels, specs):
@@ -339,170 +603,134 @@ def plot_spectrogram(panels: list[tuple[str, np.ndarray]], fs: int, title: str, 
         ax.set_ylabel("Frequency (Hz)")
         ax.set_title(f"{title} - {name} spectrogram")
         ax.grid(False)
-        fig.colorbar(mesh, ax=ax, label="Power (dB relative to peak)")
+        fig.colorbar(mesh, ax=ax, label="Power (dB re. peak power of the original recording)")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
 
 
-# --------------------------------------------------------------------------- pipeline
-def process_recording(key: str, path: Path, out: Path, cfg: Config) -> dict:
-    phrase = RECORDINGS[key][1]
+def plot_spectrogram_resolution(x: np.ndarray, fs: int, title: str, path: Path, cfg: Config, ref_power: float) -> None:
+    """Compare FFT sizes (hop = nfft/8) to document the time/frequency resolution trade-off."""
+    sizes = [512, 1024, 2048]
+    fig, axes = plt.subplots(len(sizes), 1, figsize=(10, 3.6 * len(sizes)), sharex=True)
+    mono = to_mono(x)
+    for ax, nfft in zip(axes, sizes):
+        f, t, sxx = compute_spectrogram(mono, fs, cfg, nfft=nfft, hop=nfft // 8)
+        mesh = ax.pcolormesh(t, f, 10 * np.log10(sxx / ref_power + EPS), shading="auto", cmap="magma",
+                             vmin=-cfg.spec_range_db, vmax=0)
+        ax.set_ylim(0, min(cfg.spec_max_hz, fs / 2))
+        ax.set_ylabel("Frequency (Hz)")
+        ax.set_title(f"FFT {nfft}: window {1000 * nfft / fs:.1f} ms, bin spacing {fs / nfft:.1f} Hz")
+        ax.grid(False)
+        fig.colorbar(mesh, ax=ax, label="dB re. original peak")
+    axes[-1].set_xlabel("Time (s)")
+    fig.suptitle(f"{title} - STFT resolution comparison (Hann window)", fontsize=14)
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------- real-recording analysis
+def summarise_detection(det: dict) -> dict:
+    return {k: v for k, v in det.items() if k not in ("frame_rms_db", "frame_times_s")}
+
+
+def sensitivity_sweep(data: np.ndarray, fs: int, cfg: Config) -> list[dict]:
+    """How much do the trimmed boundaries move when the main detector parameters change?"""
+    rows = []
+    for frame_ms in (20.0, 25.0, 40.0):
+        for low in (6.0, 8.0, 10.0):
+            c = replace(cfg, frame_ms=frame_ms, low_margin_db=low)
+            det = detect_silence(data, fs, c)
+            proc, _ = trim_silence(data, fs, det, c)
+            act = det["active"]
+            rows.append({"frame_ms": frame_ms, "low_margin_db": low,
+                         "first_active_start_s": act[0]["start_s"] if act else None,
+                         "last_active_end_s": act[-1]["end_s"] if act else None,
+                         "n_speech": len(det["speech"]), "n_ambiguous": len(det["ambiguous"]),
+                         "processed_duration_s": proc.shape[0] / fs,
+                         "percent_removed": (1 - proc.shape[0] / data.shape[0]) * 100})
+    return rows
+
+
+def process_recording(key: str, entry: dict, out: Path, cfg: Config) -> dict:
+    path: Path = entry["path"]
+    phrase = entry["declared_utterance"]
+    sha_before = sha256_of(path)
     data, fs = load_audio(path)
     meta = get_metadata(path, data, fs)
     stats = signal_stats(data)
-    mono = to_mono(data)
-    det = detect_silence(mono, fs, cfg)
+    det = detect_silence(data, fs, cfg)
     proc, trim_info = trim_silence(data, fs, det, cfg)
+
+    base_det = detect_silence_baseline(data, fs, cfg)
+    base_proc, _ = trim_silence(data, fs, base_det, cfg)
 
     plots, proc_dir = out / "plots", out / "processed_audio"
     paths = {"waveform": plots / f"{key}_waveform.png", "silence_detection": plots / f"{key}_silence_detection.png",
+             "boundary_review": plots / f"{key}_boundary_review.png",
              "trimmed_waveform": plots / f"{key}_trimmed_waveform.png",
              "spectrogram": plots / f"{key}_spectrogram.png",
-             "spectrogram_processed": plots / f"{key}_spectrogram_processed.png"}
+             "spectrogram_processed": plots / f"{key}_spectrogram_processed.png",
+             "spectrogram_resolution": plots / f"{key}_spectrogram_resolution.png"}
     proc_path = proc_dir / f"{path.stem}_processed.wav"
     label = f'"{phrase}" ({path.name})'
+    ref = spectrogram_reference(data, fs, cfg)
 
     plot_waveform(data, fs, label, paths["waveform"])
     plot_silence(data, fs, det, label, paths["silence_detection"])
+    plot_boundary_review(data, fs, det, label, paths["boundary_review"], cfg, ref)
     plot_comparison(data, proc, fs, label, paths["trimmed_waveform"])
-    plot_spectrogram([("original", data)], fs, label, paths["spectrogram"], cfg)
-    plot_spectrogram([("processed", proc)], fs, label, paths["spectrogram_processed"], cfg)
+    plot_spectrogram([("original", data)], fs, label, paths["spectrogram"], cfg, ref)
+    plot_spectrogram([("processed", proc)], fs, label, paths["spectrogram_processed"], cfg, ref)
+    plot_spectrogram_resolution(data, fs, label, paths["spectrogram_resolution"], cfg, ref)
     sf.write(str(proc_path), proc, fs, subtype="PCM_16")
 
-    validation = validate_wav(proc_path, fs, data.shape[1], proc.shape[0])
-    det_out = {k: v for k, v in det.items() if k not in ("frame_rms_db", "frame_times_s")}
+    validation = validate_wav(proc_path, fs, data.shape[1], proc, stats["peak_amplitude"])
+    validation["joins"] = check_joins(proc, trim_info["join_samples"])
+    validation["checks"]["joins_without_discontinuity"] = validation["joins"]["ok"]
+    sha_after = sha256_of(path)
+    validation["checks"]["original_file_unchanged"] = sha_before == sha_after
+    validation["passed"] = all(validation["checks"].values())
+    validation["original_sha256"] = sha_after
+
     rel = lambda p: p.relative_to(out.parent).as_posix()  # noqa: E731
-    return {"spoken_phrase_per_assignment": phrase,
-            "content_verification": "Phrase taken from filename only; spoken content cannot be verified automatically.",
-            "metadata": meta, "statistics": stats, "silence_detection": det_out, "trimming": trim_info,
+    return {"declared_utterance": phrase, "identity_source": entry["identity_source"],
+            "content_verification": "Declared utterance only. No speech recognition was run, so the spoken content "
+                                    "is NOT independently verified.",
+            "metadata": meta, "statistics": stats,
+            "silence_detection": summarise_detection(det), "trimming": trim_info,
             "reduction": duration_reduction(data.shape[0], proc.shape[0], fs),
             "processed_stats": signal_stats(proc), "processed_file": rel(proc_path),
+            "baseline": {"silence_detection": summarise_detection(base_det),
+                         "reduction": duration_reduction(data.shape[0], base_proc.shape[0], fs)},
+            "sensitivity": sensitivity_sweep(data, fs, cfg),
             "validation": validation, "plots": {k: rel(v) for k, v in paths.items()}}
 
 
-def write_report(results: dict, cfg: Config, path: Path) -> None:
-    R = results["recordings"]
-    keys = list(R)
-    f = lambda v, d=3: f"{v:.{d}f}"  # noqa: E731
-    L: list[str] = []
-    a = L.append
-    a("# EC24313 Artificial Intelligence and Machine Learning - Assignment 1\n")
-    a("**Course:** EC24313 - Artificial Intelligence and Machine Learning  ")
-    a("**Student:** Naman Gupta  ")
-    a("**Topic:** Voice recording, time-domain analysis, silence detection/removal and spectrogram\n")
-    a("## 1. Objective\n")
-    a("To record two short utterances (\"BIT\" and \"Naman Gupta\"), study them in the time domain, locate silent regions, "
-      "produce silence-minimised versions and examine their time-frequency content with a spectrogram.\n")
-    a("## 2. Tools and Libraries\n")
-    a("Python with NumPy (numerics), SoundFile (WAV I/O and header metadata), SciPy (STFT/spectrogram) and Matplotlib (plots). "
-      "Everything runs on a CPU; run `python assignment1.py`.\n")
-    a("## 3. Methodology\n")
-    a("1. Task 1: the original recordings are in `audio/` and are never modified (read-only access). Spoken content is "
-      "inferred from the file names only and was not verified automatically.")
-    a("2. Task 2: each file is read, sampling frequency/samples/channels taken from the header, then amplitude vs. time is plotted.")
-    a("3. Task 3: frame-wise RMS energy (dB) with an adaptive threshold (below).")
-    a("4. Task 4: leading/trailing silence trimmed with padding; over-long internal gaps shortened.")
-    a("5. Task 5: Hann-window STFT power spectrogram.\n")
-    a("## 4. Sampling Frequency and Time-Domain Analysis\n")
-    a("The sampling frequency is the number of amplitude samples stored per second. It is read directly from the WAV header "
-      "(`soundfile.info`), not estimated from the signal. It is unrelated to the fundamental frequency (pitch) of the voice, "
-      "which is typically ~85-255 Hz for adult speech; the Nyquist limit fs/2 only bounds the highest representable frequency. "
-      "Duration = number of samples / fs. For stereo files, the plots show both channels and analysis uses their average.\n")
-    a("| Recording | File | fs (Hz) | Channels | Samples | Duration (s) | Peak | RMS |")
-    a("|---|---|---|---|---|---|---|---|")
-    for k in keys:
-        r = R[k]; m, s = r["metadata"], r["statistics"]
-        a(f"| {r['spoken_phrase_per_assignment']} | {m['source_file']} | {m['sampling_frequency_hz']} | {m['channels']} | "
-          f"{m['num_samples']} | {f(m['duration_s'])} | {f(s['peak_amplitude'], 4)} | {f(s['rms_amplitude'], 4)} |")
-    a("")
-    for k in keys:
-        a(f"![{k} waveform](../{R[k]['plots']['waveform']})\n")
-    a("## 5. Silent Region Identification\n")
-    a(f"Method: short-time RMS energy with frame = {cfg.frame_ms} ms and hop = {cfg.hop_ms} ms. "
-      f"Threshold (dB) = max(noise floor + {cfg.floor_margin_db} dB, speech level - {cfg.speech_range_db} dB), where the noise floor is the "
-      f"{cfg.noise_percentile:.0f}th and the speech level the {cfg.speech_percentile:.0f}th percentile of the frame RMS values of that recording, "
-      f"so the threshold adapts to each recording's noise floor. Low-energy runs shorter than {cfg.min_silence_ms} ms are treated as "
-      f"pauses within speech, and active runs shorter than {cfg.min_speech_ms} ms are discarded as noise bursts. "
-      "This is an amplitude-based decision only: it does not identify words or phonemes, and weak sounds (e.g. unvoiced fricatives, "
-      "final consonants) may be classed as silence.\n")
-    for k in keys:
-        d = R[k]["silence_detection"]
-        a(f"**{R[k]['spoken_phrase_per_assignment']}** - noise floor {f(d['noise_floor_db'], 1) if d['noise_floor_db'] is not None else 'n/a'} dB, "
-          f"threshold {f(d['threshold_db'], 1) if d['threshold_db'] is not None else 'n/a'} dB.\n")
-        a("| Type | Start (s) | End (s) | Duration (s) |")
-        a("|---|---|---|---|")
-        for r in d["silence"]:
-            a(f"| {r['type']} | {f(r['start_s'])} | {f(r['end_s'])} | {f(r['duration_s'])} |")
-        if not d["silence"]:
-            a("| none detected | - | - | - |")
-        a("")
-        a(f"![{k} silence detection](../{R[k]['plots']['silence_detection']})\n")
-    a("## 6. Audio Preprocessing and Silence Removal\n")
-    a(f"Leading and trailing silence is removed while keeping {cfg.edge_pad_ms} ms padding around the first/last detected speech so that soft onsets and decays are not cut. "
-      f"Internal gaps are only shortened if longer than {cfg.max_internal_gap_ms} ms (then reduced to {cfg.kept_gap_ms} ms with {cfg.fade_ms} ms fades at the joins); "
-      "shorter gaps are preserved because they are natural pauses/stop closures. The sampling frequency, channel count and bit depth are unchanged, and no gain is applied.\n")
-    a("| Recording | Original (s) | Processed (s) | Removed (s) | Removed (%) | Internal gaps shortened | Internal gaps kept |")
-    a("|---|---|---|---|---|---|---|")
-    for k in keys:
-        r = R[k]; d = r["reduction"]
-        a(f"| {r['spoken_phrase_per_assignment']} | {f(d['original_duration_s'])} | {f(d['processed_duration_s'])} | "
-          f"{f(d['removed_duration_s'])} | {f(d['percent_removed'], 1)} | {len(r['trimming']['shortened_gaps'])} | {len(r['trimming']['preserved_gaps'])} |")
-    a("")
-    for k in keys:
-        v = R[k]["validation"]
-        a(f"- {R[k]['spoken_phrase_per_assignment']}: processed file `{R[k]['processed_file']}` validation "
-          f"{'passed' if v['passed'] else 'FAILED'} (" + ", ".join(f"{c}={'ok' if ok else 'fail'}" for c, ok in v["checks"].items()) + ").")
-    a("")
-    for k in keys:
-        a(f"![{k} original vs processed](../{R[k]['plots']['trimmed_waveform']})\n")
-    a("## 7. Spectrogram Analysis\n")
-    a(f"A spectrogram is the magnitude of the Short-Time Fourier Transform: the signal is cut into short overlapping windows "
-      f"(Hann window, {cfg.spec_nfft} samples, hop {cfg.spec_hop} samples), each is Fourier-transformed, and the power in dB is drawn with time on the x-axis, frequency on the y-axis "
-      "and colour for energy. Speech is non-stationary, so this shows when energy appears and at which frequencies: voiced sounds "
-      "give horizontal harmonic stripes spaced at the pitch, vowel formants appear as broad energy bands, and fricatives/bursts appear as "
-      f"broadband energy at high frequency. Frequency axis is limited to {min(cfg.spec_max_hz, 24000):.0f} Hz (or fs/2 if lower). "
-      "The window length trades time resolution against frequency resolution. Colour is dB relative to the peak power of the plotted file.\n")
-    for k in keys:
-        a(f"![{k} spectrogram](../{R[k]['plots']['spectrogram']})\n")
-        a(f"Processed counterpart: ![{k} processed spectrogram](../{R[k]['plots']['spectrogram_processed']})\n")
-    a("## 8. Results Summary and Discussion\n")
-    for k in keys:
-        r = R[k]; d = r["reduction"]; s = r["silence_detection"]["silence"]
-        lead = sum(x["duration_s"] for x in s if x["type"] == "leading")
-        trail = sum(x["duration_s"] for x in s if x["type"] == "trailing")
-        internal = [x for x in s if x["type"] == "internal"]
-        a(f"- **{r['spoken_phrase_per_assignment']}**: leading silence {f(lead)} s, trailing silence {f(trail)} s, "
-          f"{len(internal)} internal silent region(s) of at least {cfg.min_silence_ms:.0f} ms; "
-          f"{f(d['percent_removed'], 1)}% of the duration removed.")
-    a("\nThe percentages are results of the chosen thresholds and padding; a different threshold would change them. "
-      "Detected regions should be checked against the annotated plots, which is how they were assessed.\n")
-    a("## 9. Limitations\n")
-    a("- Silence is decided from short-time energy only; quiet speech or background noise near the threshold can be misclassified.")
-    a("- Percentile-based thresholds assume each file contains both background and speech frames.")
-    a("- Which phrase each file contains is taken from its filename and was not verified by listening or recognition.")
-    a("- Low-level background noise (e.g. breath or room sound) near the threshold can be flagged as active, so some non-speech segments (notably in the noisy tails) may remain in the processed audio.")
-    a("- No perceptual/listening test of intelligibility was carried out in this automated run.")
-    a("- Spectrogram appearance depends on window length and dB range.\n")
-    a("## 10. Conclusion\n")
-    a("Both recordings were loaded, analysed, trimmed and visualised with a single reproducible script. "
-      "Measured values for sampling frequency, duration, silence intervals and reductions are given in the tables above and in `analysis_results.json`.\n")
-    path.write_text("\n".join(L), encoding="utf-8")
-
-
 def run(audio_dir: Path, out: Path, cfg: Config) -> dict:
+    from evaluation import run_synthetic_evaluation  # local import: evaluation depends on this module
+    from report import write_report
+
     _style()
     for sub in ("plots", "processed_audio"):
         (out / sub).mkdir(parents=True, exist_ok=True)
     found = discover_recordings(audio_dir)
     results = {"course": "EC24313 Artificial Intelligence and Machine Learning", "student": "Naman Gupta",
                "config": asdict(cfg), "recordings": {}}
-    for key, path in found.items():
-        print(f"[{key}] processing {path.name}")
-        results["recordings"][key] = process_recording(key, path, out, cfg)
+    for key, entry in found.items():
+        print(f"[{key}] processing {entry['path'].name}")
+        results["recordings"][key] = process_recording(key, entry, out, cfg)
         r = results["recordings"][key]
         print(f"  fs={r['metadata']['sampling_frequency_hz']} Hz, dur={r['metadata']['duration_s']:.3f} s, "
-              f"removed={r['reduction']['percent_removed']:.1f}%, valid={r['validation']['passed']}")
+              f"removed={r['reduction']['percent_removed']:.1f}% (baseline {r['baseline']['reduction']['percent_removed']:.1f}%), "
+              f"valid={r['validation']['passed']}")
+    print("[synthetic] running controlled evaluation")
+    results["synthetic_evaluation"] = run_synthetic_evaluation(cfg)
+    review = ROOT / "manual_review.json"
+    results["manual_review"] = json.loads(review.read_text(encoding="utf-8")) if review.is_file() else None
+    frozen = out / "baseline_results.json"
+    results["frozen_baseline_file"] = frozen.name if frozen.is_file() else None
     (out / "analysis_results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     write_report(results, cfg, out / "analysis_report.md")
     return results
