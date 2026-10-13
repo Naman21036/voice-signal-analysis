@@ -72,7 +72,8 @@ def region_features(data: np.ndarray, fs: int, det: dict, region: dict, cfg: a.C
         label = ("inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); "
                  "speech, breath and background noise cannot be separated")
     out["automated_label"] = label
-    out["decision"] = "preserved (evidence insufficient to separate speech from noise or breath)"
+    out["decision"] = ("removable: automated evidence is inconclusive, so removal rests on the manual listening finding"
+                       if cfg.trim_ambiguous else "preserved (evidence insufficient to separate speech from noise or breath)")
     return out
 
 
@@ -95,7 +96,7 @@ def plot_region_focus(data, proc, proc_offset_s, fs, det, region, title, path: P
     a._shade(axes[1], det, labels=False)
     axes[1].axvline(proc_offset_s, color="k", ls="--", lw=1, label=f"processed file starts here ({proc_offset_s:.4f} s)")
     axes[1].set_ylabel("Amplitude (full scale = 1)")
-    axes[1].set_title("Processed output placed on the original time axis (region present = kept)")
+    axes[1].set_title("Processed output placed on the original time axis (empty where audio was removed)")
     axes[1].legend(loc="upper left", fontsize=8)
     # energy + periodicity
     feats = a.frame_features(data, fs, cfg)

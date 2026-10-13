@@ -72,7 +72,7 @@ The sampling frequency is read from the WAV header (`soundfile.info`); it is the
 2. **Noise floor** = median of the quietest 10 % of frames after excluding digital-zero frames (< −90 dBFS; they carry no noise information). **Speech level** = 95th percentile.
 3. **Hysteresis:** low (hold) threshold = noise + 8 dB; high (onset) threshold = noise + 20 dB, kept at least 10 dB below the speech level.
 4. Frames above the low threshold form runs; dips shorter than 100 ms are bridged and runs shorter than 30 ms are dropped.
-5. A run is confident **speech** where it has at least 30 ms above the high threshold, extended by at most 150 ms beyond that core (soft onsets/decays). Remaining low-level activity is **ambiguous** (breath, noise or weak speech) and is preserved by default.
+5. A run is confident **speech** where it has at least 30 ms above the high threshold, extended by at most 150 ms beyond that core (soft onsets/decays). Remaining low-level activity is **ambiguous** (breath, noise or weak speech). Automated evidence cannot tell these apart, so whether ambiguous regions are removed is a setting (`trim_ambiguous`, currently `True` because listening found the three ambiguous regions in these recordings to be noise).
 6. If the speech level is less than 15 dB above the noise floor, no region is declared silent.
 7. **Periodicity gate** (`use_periodicity_gate`, on by default): a high-energy cluster is accepted as confident speech only if it contains at least 30 ms of frames whose normalised autocorrelation peak (70–400 Hz lags, 40 ms window) is ≥ 0.5; otherwise it is labelled ambiguous (still preserved). It detects voicing, not speech.
 
@@ -82,7 +82,7 @@ The original detector (single threshold `max(P10 + 12 dB, P95 − 35 dB)` on the
 
 ### Silence removal (`trim_silence`)
 
-- Leading and trailing silence is cut, keeping **100 ms** of padding around the first and last active (speech or ambiguous) region, with a 5 ms fade at every cut that is not the file's own edge.
+- Leading and trailing silence is cut, keeping **100 ms** of padding around the first and last speech region (`trim_ambiguous=True`, the current setting; with `False` the first and last *active* region, speech or ambiguous, is used), with a 5 ms fade at every cut that is not the file's own edge.
 - An internal gap is shortened (to 200 ms) **only if it is longer than 400 ms and both neighbours are confident speech**. In both recordings no gap qualified, so no internal gap was changed.
 - The sampling frequency, channels and 16-bit PCM format are retained; no gain is applied. Inputs are never modified.
 
@@ -102,12 +102,12 @@ Values come from `outputs/analysis_results.json`. Amplitudes are relative to ful
 |---|---|---|
 | Sampling frequency | 48 000 Hz | 48 000 Hz |
 | Channels | 2 | 2 |
-| Samples per channel | 118 656 | 102 720 |
-| Duration | 2.472 s | 2.140 s |
+| Samples per channel | 118 656 | 81 120 |
+| Duration | 2.472 s | 1.690 s |
 | Peak amplitude | 0.9523 | 0.9523 |
-| RMS amplitude | 0.1615 | 0.1736 |
+| RMS amplitude | 0.1615 | 0.1943 |
 
-Removed: 0.332 s (**13.4 %**; the original detector gave 14.6 %). Detected regions: silence 0–0.158 s, **ambiguous 0.158–0.608 s**, speech 0.608–1.718 s, internal silence 1.718–1.817 s, speech 1.817–2.098 s, trailing silence 2.098–2.472 s.
+Removed: 0.782 s (**31.6 %**; the original detector gave 14.6 %). Detected regions: silence 0–0.158 s, **ambiguous 0.158–0.608 s**, speech 0.608–1.718 s, internal silence 1.718–1.817 s, speech 1.817–2.098 s, trailing silence 2.098–2.472 s. The output is the original from 0.5075 s to 2.1975 s.
 
 ### "Naman Gupta" (`audio/Naman_Name.wav`)
 
@@ -115,18 +115,18 @@ Removed: 0.332 s (**13.4 %**; the original detector gave 14.6 %). Detected regio
 |---|---|---|
 | Sampling frequency | 48 000 Hz | 48 000 Hz |
 | Channels | 2 | 2 |
-| Samples per channel | 87 552 | 84 792 |
-| Duration | 1.824 s | 1.7665 s |
+| Samples per channel | 87 552 | 60 480 |
+| Duration | 1.824 s | 1.260 s |
 | Peak amplitude | 0.9477 | 0.9477 |
-| RMS amplitude | 0.1666 | 0.1693 |
+| RMS amplitude | 0.1666 | 0.1997 |
 
-Removed: 0.0575 s (**3.2 %**; the original detector gave 13.3 %). Detected regions: silence 0–0.158 s, ambiguous 0.158–0.287 s, speech 0.287–1.347 s, internal silence 1.347–1.528 s, **ambiguous 1.528–1.824 s**.
+Removed: 0.564 s (**30.9 %**; the original detector gave 13.3 %). Detected regions: silence 0–0.158 s, ambiguous 0.158–0.287 s, speech 0.287–1.347 s, internal silence 1.347–1.528 s, **ambiguous 1.528–1.824 s**. The output is the original from 0.1875 s to 1.4475 s.
 
 ### What changed relative to the original detector
 
-For "Naman Gupta" the original detector reported leading silence up to 0.343 s and internal silence at 1.053–1.153 s and 1.333–1.693 s, and trimmed 0.2425 s from the start. The new detector keeps the low-level start (0.158–0.287 s, ambiguous) and the 0.3 s tail (1.528–1.824 s, ambiguous), because the plots cannot show they are non-speech, so it removes only 0.0575 s. The lower reduction is a deliberate consequence of the conservative policy, not a quality score.
+For "Naman Gupta" the original detector reported leading silence up to 0.343 s and internal silence at 1.053–1.153 s and 1.333–1.693 s, and trimmed 0.2425 s from the start only. The current detector classifies 0.158–0.287 s and 1.528–1.824 s as ambiguous, and because the listening finding says they are noise they are removed (apart from the 100 ms padding next to speech), so the file loses its low-level start and its 0.3 s tail. With `trim_ambiguous=False` the earlier conservative result (13.4 % for "BIT", 3.2 % for "Naman Gupta") is reproduced.
 
-Only the two ends were trimmed (0.0575 s from the start of each file; the "BIT" file also loses 0.275 s of trailing silence). Processed RMS is slightly higher because low-energy frames were removed from the average; peak amplitude is unchanged. Both processed files passed all 11 applicable integrity checks (reopens, non-empty, finite, non-zero, same sampling frequency/channels/sample count, matches the processed array within 1 LSB, no clipped samples, peak not above the original, original file hash unchanged; the join check is not applicable because no joins were created). These are signal-integrity checks; intelligibility was not assessed by listening.
+Leading and trailing material was trimmed; no internal gap was shortened. Processed RMS is higher because low-energy frames were removed from the average; peak amplitude is unchanged. Both processed files passed all 11 applicable integrity checks (reopens, non-empty, finite, non-zero, same sampling frequency/channels/sample count, matches the processed array within 1 LSB, no clipped samples, peak not above the original, original file hash unchanged; the join check is not applicable because no joins were created). These are signal-integrity checks; the processed audio itself was not listened to.
 
 ### Synthetic evaluation (known ground truth)
 
@@ -158,7 +158,7 @@ Status for both files: **partially supported**. Recognition output is supporting
 
 ### Ambiguous low-level regions
 
-Three regions are kept as ambiguous: "BIT" 0.158–0.608 s, "Naman Gupta" 0.158–0.287 s and 1.528–1.824 s. For each, `outputs/plots/*_ambiguous_region_N.png` shows the original and processed waveforms, frame RMS with periodicity, and the spectrogram. Measured: the regions are 17–18 dB below the confident speech, 43–62 % of their frames pass the periodicity threshold (borderline), and most energy is below 300 Hz; two of them are more left-channel dominant than the speech. These features are **inconclusive** (weak voicing, low-frequency noise and breath all produce them), so the regions are preserved. No listening check has been performed; `outputs/listening_test/` contains clips and `outputs/listening_checklist.md` lists the questions. Findings can be added in a `manual_listening.json` file, which the next run includes in the report.
+Three regions are classified as ambiguous: "BIT" 0.158–0.608 s, "Naman Gupta" 0.158–0.287 s and 1.528–1.824 s. For each, `outputs/plots/*_ambiguous_region_N.png` shows the original and processed waveforms, frame RMS with periodicity, and the spectrogram. Measured: the regions are 17–18 dB below the confident speech, 43–62 % of their frames pass the periodicity threshold (borderline), and most energy is below 300 Hz; two of them are more left-channel dominant than the speech. These features are **inconclusive** on their own (weak voicing, low-frequency noise and breath all produce them). **Manual listening (reported by the user, recorded in `manual_listening.json`): all three regions are noise, not speech.** The setup and date were not recorded, and this finding was not independently verified by the pipeline, but the regions are removed accordingly. Spoken content and join smoothness have not been listened to; clips and questions are in `outputs/listening_test/` and `outputs/listening_checklist.md`.
 
 ### Audio joins
 
@@ -186,13 +186,13 @@ Top: waveform with confident speech shaded green, ambiguous low-level activity o
 
 ![Boundary review for the BIT recording](outputs/plots/bit_boundary_review.png)
 
-Zoomed views of the start and end: waveform, frame RMS and spectrogram. The ambiguous region before the first vowel contains isolated impulsive spikes (a vertical broadband line near 0.26 s) and no harmonic stripes, which suggests clicks or breath, but this cannot be proven from the plots, so it is kept. The end of the recording decays smoothly to a flat noise floor.
+Zoomed views of the start and end: waveform, frame RMS and spectrogram. The ambiguous region before the first vowel contains isolated impulsive spikes (a vertical broadband line near 0.26 s) and no harmonic stripes, consistent with the listening finding that it is noise. The end of the recording decays smoothly to a flat noise floor.
 
 ### Before and after – "Naman Gupta"
 
 ![Original versus processed waveform for the Naman Gupta recording](outputs/plots/name_trimmed_waveform.png)
 
-Original (top) and processed (bottom) share the same time and amplitude axes. Only 0.0575 s was removed from the start; the low-level tail is intentionally preserved.
+Original (top) and processed (bottom) share the same time and amplitude axes. 0.5640 s was removed in total: the low-level start up to 0.1875 s and the low-level tail after 1.4475 s.
 
 ### Spectrogram – "BIT"
 
@@ -279,7 +279,7 @@ python -m pytest tests -q
 
 On Linux/macOS activate with `source .venv/bin/activate`. Run from the repository root. Optional arguments: `--audio-dir DIR` and `--output-dir DIR`. Recordings are identified through `audio/manifest.json`; without it the script falls back to filename keywords (`bit`; `name`/`gupta`). Exit status is 0 on success, 1 on a critical error and 2 if a processed file fails validation. Reruns overwrite generated files only (`outputs/baseline_results.json` is not regenerated).
 
-All detector, trimming and spectrogram parameters are fields of the `Config` dataclass in `assignment1.py`; `trim_ambiguous=True` would also remove ambiguous regions (not the default).
+All detector, trimming and spectrogram parameters are fields of the `Config` dataclass in `assignment1.py`. `trim_ambiguous` (default `True`) removes ambiguous regions; set it to `False` to preserve them, which is the safer choice for recordings that have not been listened to.
 
 ## Output reference
 
@@ -303,14 +303,14 @@ Source recordings are in `audio/`; everything in `outputs/` except `baseline_res
 
 ## Limitations
 
-- Detection is energy-based with an optional voicing check; it is not a validated speech/non-speech classifier. Loud non-speech sounds can still look like speech (a periodic thump passes the gate), and very quiet speech near the noise floor may be labelled ambiguous or, at worst, silence.
+- Detection is energy-based with an optional voicing check; it is not a validated speech/non-speech classifier. Loud non-speech sounds can still look like speech (a periodic thump passes the gate), and very quiet speech near the noise floor may be labelled ambiguous. With `trim_ambiguous=True`, weak true speech labelled ambiguous would be cut (on synthetic data a standalone unvoiced sound lost 13 % of its samples with the gate on); the setting is justified here only by the listening finding for these two files.
 - The noise floor assumes the quietest frames are representative background noise; a recording with no noise-only frames would break this, and the minimum-separation guard only partly mitigates it.
 - The spoken content is only partly supported: one offline recogniser agreed with each declared utterance and the other did not. Recognition is not ground truth and nobody has listened to confirm it.
-- The three ambiguous regions are unresolved: the automated features are inconclusive and no listening check has been done, so they are preserved.
+- The ambiguous regions are classed as noise on the basis of a user-reported listening check (setup and date not recorded). It was not independently verified, and the automated features alone are inconclusive.
 - Joins: none exist in the real outputs, and the synthetic tests establish numerical continuity only, not perceptual smoothness.
 - The manual boundary observations come from plots, not listening, and are not ground truth. Synthetic results show behaviour on simplified signals and need not transfer to the recordings.
 - Spectrogram appearance depends on window length, hop and dB range. No recognition accuracy or other downstream benefit is claimed.
 
 ## Conclusion
 
-Both 48 kHz stereo recordings were analysed with a conservative hysteresis detector. Only confidently identified silence was removed (13.4 % of "BIT", 3.2 % of "Naman Gupta"); three uncertain low-level regions are flagged and kept. Offline recognition partly supports the declared utterances, a periodicity gate reduces false speech labels on synthetic non-speech sounds without changing the real results, and join handling is validated on synthetic signals because the real outputs contain no joins. Listening checks are still needed for the ambiguous regions, the spoken content and the perceptual quality of any joins.
+Both 48 kHz stereo recordings were analysed with a hysteresis detector. Following a listening finding that the three low-level ambiguous regions are noise, they were trimmed: 31.6 % of "BIT" and 30.9 % of "Naman Gupta" were removed (13.4 % and 3.2 % when ambiguous regions are preserved). Offline recognition partly supports the declared utterances, a periodicity gate reduces false speech labels on synthetic non-speech sounds without changing the real results, and join handling is validated on synthetic signals because the real outputs contain no joins. The spoken content and the perceptual quality of any joins have still not been confirmed by listening.

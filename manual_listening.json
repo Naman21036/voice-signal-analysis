@@ -1,0 +1,10 @@
+{
+  "listener": "the user (reported in the working session)",
+  "date": "not recorded",
+  "setup": "not recorded",
+  "observations": [
+    {"item": "bit ambiguous region 1 (0.158-0.608 s)", "finding": "Reported as noise, not speech.", "speech_present": "no"},
+    {"item": "name ambiguous region 1 (0.158-0.287 s)", "finding": "Reported as noise, not speech.", "speech_present": "no"},
+    {"item": "name ambiguous region 2 (1.528-1.824 s)", "finding": "Reported as noise, not speech.", "speech_present": "no"}
+  ]
+}

@@ -60,7 +60,7 @@ def write_report(results: dict, cfg, path: Path) -> None:
       "cross-checked with offline speech recognition where available (Section 3.1).")
     a("2. **Time domain:** header metadata (sampling frequency, channels, samples), peak and RMS, waveform plots.")
     a("3. **Silence detection:** hysteresis energy detector (Section 5) compared with the original single-threshold baseline.")
-    a("4. **Trimming:** conservative boundary trimming; ambiguous regions preserved (Section 6).")
+    a(f"4. **Trimming:** boundary trimming with padding; ambiguous regions are {'removed' if cfg.trim_ambiguous else 'preserved'} (`trim_ambiguous` = {cfg.trim_ambiguous}; Section 6).")
     a("5. **Validation:** re-open each processed file and check integrity, join discontinuities and original-file hashes.")
     a("6. **Spectrogram:** Hann-window STFT, shared dB reference (Section 7).\n")
 
@@ -118,12 +118,12 @@ def write_report(results: dict, cfg, path: Path) -> None:
     a(f"- **Hysteresis:** low (hold) threshold = noise + {cfg.low_margin_db:g} dB; high (onset) threshold = noise + {cfg.high_margin_db:g} dB, "
       f"kept at least {cfg.level_gap_db:g} dB below the speech level (95th percentile).")
     a(f"- Confident **speech** needs >= {cfg.min_core_ms:g} ms above the high threshold and extends at most {cfg.max_extension_ms:g} ms beyond that core. "
-      "Other low-level activity above the hold threshold is **ambiguous** (breath, noise or weak speech) and is preserved by default.")
+      "Other low-level activity above the hold threshold is **ambiguous** (breath, noise or weak speech); whether it is removed is controlled by `trim_ambiguous`.")
     a(f"- Pauses shorter than {cfg.min_silence_ms:g} ms are bridged; active runs shorter than {cfg.min_speech_ms:g} ms are discarded.")
     a(f"- If speech level - noise floor < {cfg.min_snr_db:g} dB, no region is declared silent.")
     a(f"- **Periodicity gate** (`use_periodicity_gate` = {cfg.use_periodicity_gate}): a high-energy cluster is accepted as confident speech only if it contains at least "
       f"{cfg.min_periodic_ms:g} ms of frames whose normalised autocorrelation peak ({cfg.pitch_min_hz:g}-{cfg.pitch_max_hz:g} Hz lags, {cfg.periodicity_frame_ms:g} ms window) is >= {cfg.min_periodicity:g}; "
-      "otherwise it is labelled ambiguous (still preserved). Evaluated in Section 5.5. It detects voicing, not speech.")
+      "otherwise it is labelled ambiguous. Evaluated in Section 5.5. It detects voicing, not speech.")
     a("- Zero-crossing rate, spectral flux, spectral flatness and low-frequency energy fraction were also measured on controlled signals (Section 5.5) and were not adopted.\n")
     a("| Recording | Noise floor (dB) | MAD (dB) | Low thr. (dB) | High thr. (dB) | Speech level (dB) | Level - noise (dB) |")
     a("|---|---|---|---|---|---|---|")
@@ -193,9 +193,9 @@ def write_report(results: dict, cfg, path: Path) -> None:
       + (f"Regions with a left-minus-right level difference more than 3 dB larger than the speech's ({'; '.join(more_left)}) "
          "are more left-channel dominant than the speech, which would fit a source other than the speaker's voice (handling noise, a breath near one microphone), "
          "but this is only a hint. " if more_left else "")
-      + "All regions are **preserved** ("
-      + ("all present in the processed output" if all(e["kept_in_processed_output"] for k, e in regs) else "NOT all present - check")
-      + ").\n")
+      + "Treatment: "
+      + ("removed from the processed output (apart from up to the 100 ms edge padding next to confident speech) because the manual listening finding below reports them as noise; the automated evidence alone is inconclusive" if cfg.trim_ambiguous and not all(e["kept_in_processed_output"] for k, e in regs) else ("all present in the processed output (preserved)" if all(e["kept_in_processed_output"] for k, e in regs) else "mixed - check"))
+      + ".\n")
     for k in keys:
         for i, e in enumerate(R[k]["region_analysis"]):
             a(f"![{k} ambiguous region {i + 1} focus](../{e['focus_plot']})\n")
@@ -233,29 +233,29 @@ def write_report(results: dict, cfg, path: Path) -> None:
     a("")
     a("Detector comparison on the speech class (rates on a 10 ms grid; FP = non-speech frames accepted as confident speech; "
       "FN = true-speech frames not accepted as confident speech; Active FN = true-speech frames that would be trimmed away):\n")
-    a("| Scenario | Energy-only FP | FN | Active FN | With periodicity gate FP | FN | Active FN |")
-    a("|---|---|---|---|---|---|---|")
+    a("| Scenario | Energy-only FP | FN | Active FN | Speech kept after trim | With periodicity gate FP | FN | Active FN | Speech kept after trim |")
+    a("|---|---|---|---|---|---|---|---|---|")
     for name, s_ in FE["scenarios"].items():
         e, g = s_["energy_only"], s_["with_periodicity_gate"]
-        a(f"| {name} | {e['speech_false_positive_rate']:.2f} | {e['speech_false_negative_rate']:.2f} | {e['active_false_negative_rate']:.2f} | "
-          f"{g['speech_false_positive_rate']:.2f} | {g['speech_false_negative_rate']:.2f} | {g['active_false_negative_rate']:.2f} |")
+        a(f"| {name} | {e['speech_false_positive_rate']:.2f} | {e['speech_false_negative_rate']:.2f} | {e['active_false_negative_rate']:.2f} | {e['speech_preserved_after_trim']:.2f} | "
+          f"{g['speech_false_positive_rate']:.2f} | {g['speech_false_negative_rate']:.2f} | {g['active_false_negative_rate']:.2f} | {g['speech_preserved_after_trim']:.2f} |")
     a("")
     changed = [k for k in keys if R[k]["periodicity_gate_changed_regions"]]
     a("Findings: the periodicity gate cuts the speech false-positive rate for clicks, white-noise bursts and breath-like noise, and leaves quiet voiced "
       "speech and an unvoiced sound next to voiced speech unaffected. It does **not** help against a periodic low-frequency thump, and a standalone "
-      "unvoiced sound (a fricative with no voiced neighbour) is no longer accepted as confident speech: it becomes ambiguous and is still preserved "
-      "(Active FN stays 0). Its practical effect is classification and flagging, because ambiguous regions are preserved either way. The other features were "
+      "unvoiced sound (a fricative with no voiced neighbour) is no longer accepted as confident speech: it becomes ambiguous. With `trim_ambiguous` = False it is still preserved; "
+      f"with `trim_ambiguous` = {cfg.trim_ambiguous} the 'preserved after trim' column shows what happens. Removing ambiguous regions therefore carries a real risk of cutting genuine weak or unvoiced speech in other recordings. The other features were "
       "not adopted: their AUCs come from stationary synthetic noise, which differs from real speech transitions, and no labelled real data exists to validate them. "
       "The pipeline therefore stays **energy-based with an optional voicing check**; it is not a validated speech/non-speech classifier. "
       "On the real recordings, running with the gate off and on "
       + ("gave identical regions." if not changed else "gave different regions for: " + ", ".join(changed) + ".") + "\n")
 
     a("## 6. Audio Preprocessing and Silence Removal\n")
-    a(f"- Leading/trailing: cut to the first/last **active** region (speech or ambiguous) with {cfg.edge_pad_ms:g} ms context, "
+    a(f"- Leading/trailing: cut to the first/last {"**speech**" if cfg.trim_ambiguous else "**active** (speech or ambiguous)"} region with {cfg.edge_pad_ms:g} ms context, "
       f"and a {cfg.fade_ms:g} ms fade at each cut that is not the original file edge. The padding exceeds the frame length plus the measured onset ramps, so soft onsets are kept.")
     a(f"- Internal: a gap is shortened (to {cfg.kept_gap_ms:g} ms) only if it is longer than {cfg.max_internal_gap_ms:g} ms **and** both neighbours are confident speech. "
       "Natural pauses, stop closures and gaps next to ambiguous regions are preserved.")
-    a(f"- `trim_ambiguous` = {cfg.trim_ambiguous}: ambiguous regions are not removed.")
+    a(f"- `trim_ambiguous` = {cfg.trim_ambiguous}: ambiguous regions are {'removed (conservative preservation is available by setting it to False)' if cfg.trim_ambiguous else 'not removed'}.")
     a("- Sampling frequency, channels and 16-bit PCM format are unchanged; no gain is applied.\n")
     a("| Recording | Original (s) | Processed (s) | Removed (s) | Removed (%) | Gaps shortened | Gaps preserved |")
     a("|---|---|---|---|---|---|---|")
@@ -265,7 +265,7 @@ def write_report(results: dict, cfg, path: Path) -> None:
           f"{_f(d['percent_removed'], 1)} | {len(r['trimming']['shortened_gaps'])} | {len(r['trimming']['preserved_gaps'])} |")
     a("")
     a("**Baseline versus improved (measured on the real recordings)**\n")
-    a("| Recording | Baseline processed (s) | Baseline removed (%) | Improved processed (s) | Improved removed (%) | Ambiguous kept (s) |")
+    a("| Recording | Baseline processed (s) | Baseline removed (%) | Improved processed (s) | Improved removed (%) | Ambiguous regions (s) |")
     a("|---|---|---|---|---|---|")
     for k in keys:
         r = R[k]; b = r["baseline"]["reduction"]; d = r["reduction"]
@@ -362,8 +362,9 @@ def write_report(results: dict, cfg, path: Path) -> None:
           f"{len(internal)} internal silent region(s), {len(amb)} ambiguous region(s) "
           f"({', '.join(f'{x['start_s']:.2f}-{x['end_s']:.2f} s' for x in amb) or 'none'}); {_f(d['percent_removed'], 1)} % of the duration removed.")
     a("")
-    a("Which of the ambiguous regions are breath, room noise or weak speech cannot be settled from amplitude and the spectrograms alone, so they are kept. "
-      "Removing them (`trim_ambiguous=True`) would shorten the files further but risks clipping speech; that is a decision for listening review.\n")
+    a("Which of the ambiguous regions are breath, room noise or weak speech cannot be settled from amplitude and the spectrograms alone; the automated evidence is inconclusive. "
+      + ("They are removed from the processed audio because the user-reported listening finding (Section 5.3) says all of them are noise; that finding is recorded, not independently verified here, and `trim_ambiguous=False` restores preservation.\n"
+         if cfg.trim_ambiguous else "They are kept; removing them (`trim_ambiguous=True`) would shorten the files further but risks clipping speech and needs a listening review.\n"))
 
     a("## 10. Limitations\n")
     a("Status of each earlier limitation after this round of work:\n")
@@ -372,22 +373,22 @@ def write_report(results: dict, cfg, path: Path) -> None:
     cvs = {k: (cv or {"recordings": {}})["recordings"].get(k, {}).get("status", "unverified") for k in keys}
     a("| Spoken content only declared | **Partly addressed, still unverified** | Offline ASR run (Section 3.1): statuses "
       + ", ".join(f"{k}: {v}" for k, v in cvs.items()) + ". ASR is not ground truth; no listening check. |")
-    a("| Ambiguous low-level regions unresolved | **Investigated, still unresolved** | Features and plots (Section 5.3) are inconclusive; the regions are preserved. A listening check is needed. |")
+    a("| Ambiguous low-level regions unresolved | **Resolved by manual listening (user-reported), not by automation** | Features and plots (Section 5.3) are inconclusive; the user reported all three regions as noise, and they are removed. The report records this as a manual observation without details of setup. |")
     a("| Join quality not tested on real audio | **Clarified** | No joins exist in the real outputs (Section 6.2). Numerical continuity was validated on synthetic signals only. |")
-    a("| Perceptual smoothness of joins | **Unchanged (not evaluated)** | Listening material is provided; no listening has been performed unless `manual_listening.json` exists. |")
+    a("| Perceptual smoothness of joins | **Unchanged (not evaluated)** | Listening material is provided; the only recorded listening finding concerns the ambiguous regions, not joins or the spoken content. |")
     a("| Loud non-speech sounds look like speech | **Partly mitigated** | The periodicity gate reduces false positives on synthetic clicks, noise bursts and breath-like noise (Section 5.5); it fails on a periodic thump and is not validated on real labelled data. |")
     a("")
     a("Further limitations:\n")
     a("- Detection is energy-based with an optional voicing check. It is not a validated speech/non-speech classifier; very quiet speech near the noise floor may be labelled ambiguous or, in the worst case, silence.")
     a("- Thresholds assume the quietest frames represent the background noise; this fails if a recording has no noise-only frames. The minimum-separation guard only partly mitigates this.")
-    a("- A standalone unvoiced sound is not accepted as confident speech by the periodicity gate (it is kept as ambiguous).")
+    a("- A standalone unvoiced sound is not accepted as confident speech by the periodicity gate (it is labelled ambiguous).")
     a("- Manual boundary observations come from plots, not listening, and are not ground truth.")
     a("- Synthetic results show behaviour on simplified signals and need not transfer to the real recordings.")
     a("- Spectrogram appearance depends on window length, hop and dB range.\n")
 
     a("## 11. Conclusion\n")
     a("Both recordings were analysed with a conservative hysteresis detector. Offline recognition gives partial, non-definitive support for the declared utterances; "
-      "the ambiguous low-level regions could not be classified from automated evidence and are preserved; no joins were created in the real outputs, so join behaviour "
+      "the ambiguous low-level regions could not be classified from automated evidence, and are treated according to the manual listening finding; no joins were created in the real outputs, so join behaviour "
       "is validated on synthetic signals only; and a periodicity gate measurably reduces false speech labels on synthetic non-speech sounds without changing the real-recording regions. "
       "Listening checks remain necessary for the ambiguous regions, the spoken content and the perceptual quality of joins. "
       "All measured values are in `analysis_results.json`; the frozen pre-change results are in `baseline_results.json`.\n")

@@ -13,6 +13,7 @@ import evaluation as ev  # noqa: E402
 
 FS = 16000
 CFG = a.Config()
+KEEP = a.Config(trim_ambiguous=False)  # conservative mode: ambiguous regions preserved
 
 
 def tone(dur, amp=0.5, f=300):
@@ -97,7 +98,7 @@ def test_weak_activity_is_ambiguous_not_deleted():
     x = np.concatenate([n(), tone(0.5, 0.01), n(), tone(0.5, 0.3), n()])[:, None]
     det = a.detect_silence(x, FS, CFG)
     assert det["ambiguous"], "weak tone should be flagged as ambiguous"
-    out, _ = a.trim_silence(x, FS, det, CFG)
+    out, _ = a.trim_silence(x, FS, det, KEEP)
     # leading 1 s trimmed to 0.1 s padding; weak tone and the 1 s gap next to it are kept (2.2 s total)
     assert out.shape[0] == pytest.approx(2.2 * FS, abs=0.1 * FS)
     assert np.max(np.abs(out[: int(0.7 * FS)])) > 0.005  # weak tone still present
@@ -170,7 +171,7 @@ def test_gap_next_to_ambiguous_is_preserved():
     det = {"active": [{"start_s": 0.5, "end_s": 0.8, "duration_s": 0.3, "type": "ambiguous"},
                       {"start_s": 1.8, "end_s": 2.3, "duration_s": 0.5, "type": "speech"}], "speech": []}
     data = np.random.default_rng(0).standard_normal((3 * FS, 1)) * 0.01
-    _, info = a.trim_silence(data, FS, det, CFG)
+    _, info = a.trim_silence(data, FS, det, KEEP)
     assert not info["shortened_gaps"] and info["preserved_gaps"][0]["reason"].startswith("neighbour")
 
 
@@ -291,7 +292,7 @@ def test_gate_turns_loud_noise_burst_into_ambiguous_but_preserves_it():
     on = a.detect_silence(sc["x"], ev.FS, replace(CFG, use_periodicity_gate=True))
     dur = lambda d: sum(r["duration_s"] for r in d["speech"])  # noqa: E731
     assert dur(on) < dur(off)
-    out, info = a.trim_silence(sc["x"], ev.FS, on, CFG)
+    out, info = a.trim_silence(sc["x"], ev.FS, on, KEEP)
     assert info["kept_segments"][0][0] <= 0.1 + 1e-6  # event at 0.1-0.5 s is kept, not trimmed
 
 
@@ -334,7 +335,7 @@ def test_region_features_returns_evidence_without_claiming_speech():
     det = a.detect_silence(x, FS, CFG)
     assert det["ambiguous"]
     e = rg.region_features(x, FS, det, det["ambiguous"][0], CFG)
-    assert e["decision"].startswith("preserved") and "speech" in e["automated_label"] + "speech"
+    assert e["decision"].startswith(("preserved", "removable")) and "speech" in e["automated_label"] + "speech"
     assert e["region_features"]["rms_db_median"] < e["reference_confident_speech"]["rms_db_median"]
 
 
@@ -364,3 +365,14 @@ def test_real_outputs_paths_exist_and_durations_match_saved_audio():
     for k, r in res["recordings"].items():
         h = r["validation"]["original_sha256"]
         assert a.sha256_of(ROOT / "audio" / r["metadata"]["source_file"]) == h
+
+
+def test_trim_ambiguous_default_removes_ambiguous_but_keep_mode_preserves():
+    rng = np.random.default_rng(2)
+    n = lambda: 1e-3 * rng.standard_normal(FS)  # noqa: E731
+    x = np.concatenate([n(), tone(0.5, 0.01), n(), tone(0.5, 0.3), n()])[:, None]
+    det = a.detect_silence(x, FS, CFG)
+    kept, _ = a.trim_silence(x, FS, det, KEEP)
+    removed, info = a.trim_silence(x, FS, det, CFG)
+    assert CFG.trim_ambiguous and removed.shape[0] < kept.shape[0]
+    assert info["kept_segments"][0][0] > 2.0  # starts at the confident speech minus padding

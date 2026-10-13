@@ -65,7 +65,7 @@ class Config:
     min_core_ms: float = 30.0        # time above the high threshold needed to call a run confident speech
     max_extension_ms: float = 150.0  # confident speech extends at most this far beyond its high-threshold core
                                      # (soft onsets/decays); further low-level activity is 'ambiguous'
-    trim_ambiguous: bool = False     # False (default): ambiguous regions are preserved; True: treated as removable
+    trim_ambiguous: bool = True      # True: ambiguous regions are removable (listening confirmed noise); False: preserve them
     # --- optional periodicity gate (loud non-periodic activity -> 'ambiguous' instead of 'speech')
     use_periodicity_gate: bool = True
     periodicity_frame_ms: float = 40.0   # window for the autocorrelation (needs >= 2 periods of the lowest pitch)
@@ -415,7 +415,7 @@ def detect_silence(x: np.ndarray, fs: int, cfg: Config) -> dict:
         flags.append(f"{n_nonperiodic} high-energy cluster(s) lacked periodic (voiced) frames and were not accepted as "
                      "confident speech (could be clicks, noise bursts or unvoiced sounds)")
     if result["ambiguous"]:
-        flags.append(f"{len(result['ambiguous'])} ambiguous low-level region(s) kept: level is above the noise floor but "
+        flags.append(f"{len(result['ambiguous'])} ambiguous low-level region(s): level is above the noise floor but "
                      "never reaches the speech-onset threshold")
     result.update(threshold_db=float(low), low_threshold_db=float(low),
                   high_threshold_db=None if not np.isfinite(high) else float(high),
@@ -581,7 +581,7 @@ def _shade(ax, det, labels: bool = True) -> None:
         for i, r in enumerate(regs):
             ax.axvspan(r["start_s"], r["end_s"], color=_CLASS_COLORS[kind], alpha=0.2 if kind != "speech" else 0.1,
                        label=({"silence": "Silence", "speech": "Speech (confident)",
-                               "ambiguous": "Ambiguous low-level (kept)"}[kind] if (i == 0 and labels) else None))
+                               "ambiguous": "Ambiguous low-level"}[kind] if (i == 0 and labels) else None))
 
 
 def _plot_rms(ax, det) -> None:

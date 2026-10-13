@@ -63,12 +63,24 @@ def event_scenarios() -> dict[str, dict]:
     }
 
 
-def _speech_class_metrics(speech_truth, det, total) -> dict:
+def _speech_class_metrics(speech_truth, det, total, x=None, cfg=None) -> dict:
     n_grid = int(round(total * 1000 / GRID_MS))
     truth = _mask(speech_truth, n_grid)
     spk = _mask([(r["start_s"], r["end_s"]) for r in det["speech"]], n_grid)
     act = _mask([(r["start_s"], r["end_s"]) for r in det["active"]], n_grid)
-    return {"speech_false_positive_rate": float((~truth & spk).sum() / max(1, (~truth).sum())),
+    preserved = None
+    if x is not None:  # fraction of true speech samples surviving trimming with this detector's output and cfg
+        _, info = a.trim_silence(x, FS, det, cfg)
+        n_ms = int(round(total * 1000)) + 1
+        kept = np.zeros(n_ms, bool)
+        for t0, t1 in info["kept_segments"]:
+            kept[int(round(t0 * 1000)):int(round(t1 * 1000))] = True
+        tm = np.zeros(n_ms, bool)
+        for t0, t1 in speech_truth:
+            tm[int(round(t0 * 1000)):int(round(t1 * 1000))] = True
+        preserved = float((kept & tm).sum() / max(1, tm.sum()))
+    return {"speech_preserved_after_trim": preserved,
+            "speech_false_positive_rate": float((~truth & spk).sum() / max(1, (~truth).sum())),
             "speech_false_negative_rate": float((truth & ~spk).sum() / max(1, truth.sum())),
             "active_false_negative_rate": float((truth & ~act).sum() / max(1, truth.sum()))}
 
@@ -111,8 +123,8 @@ def run_feature_evaluation(cfg: a.Config) -> dict:
                 pos_f.setdefault(k, []).append(feats[k][loud & voiced])
                 neg_f.setdefault(k, []).append(feats[k][loud & in_ev])
         total = x.shape[0] / FS
-        out["scenarios"][name] = {"energy_only": _speech_class_metrics(sc["speech"], a.detect_silence(x, FS, off), total),
-                                  "with_periodicity_gate": _speech_class_metrics(sc["speech"], a.detect_silence(x, FS, on), total)}
+        out["scenarios"][name] = {"energy_only": _speech_class_metrics(sc["speech"], a.detect_silence(x, FS, off), total, x, off),
+                                  "with_periodicity_gate": _speech_class_metrics(sc["speech"], a.detect_silence(x, FS, on), total, x, on)}
     for k in pos_f:
         out["feature_auc"][k] = _auc(np.concatenate(pos_f[k]), np.concatenate(neg_f[k]))
     return out

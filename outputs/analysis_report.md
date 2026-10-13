@@ -29,7 +29,7 @@ Python, NumPy (frame energy, statistics), SoundFile (WAV I/O and header metadata
 1. **Identity:** each file is tied to its declared utterance through `audio/manifest.json` (a declaration), then cross-checked with offline speech recognition where available (Section 3.1).
 2. **Time domain:** header metadata (sampling frequency, channels, samples), peak and RMS, waveform plots.
 3. **Silence detection:** hysteresis energy detector (Section 5) compared with the original single-threshold baseline.
-4. **Trimming:** conservative boundary trimming; ambiguous regions preserved (Section 6).
+4. **Trimming:** boundary trimming with padding; ambiguous regions are removed (`trim_ambiguous` = True; Section 6).
 5. **Validation:** re-open each processed file and check integrity, join discontinuities and original-file hashes.
 6. **Spectrogram:** Hann-window STFT, shared dB reference (Section 7).
 
@@ -73,10 +73,10 @@ Mono mix, 25 ms frames / 10 ms hop, threshold = max(P10 + 12 dB, P95 - 35 dB), p
 - Frame RMS in dB over **all channels pooled** (25 ms frames, 10 ms hop; each frame owns the hop-sized span around its centre, so onsets are not delayed by half a frame).
 - **Noise floor** = median of the quietest 10 % of frames after excluding digital-zero frames (< -90 dBFS, which carry no noise information). The MAD of those frames is reported as a stationarity check only; using it to set thresholds pushed the threshold into soft speech on the real recordings and was rejected.
 - **Hysteresis:** low (hold) threshold = noise + 8 dB; high (onset) threshold = noise + 20 dB, kept at least 10 dB below the speech level (95th percentile).
-- Confident **speech** needs >= 30 ms above the high threshold and extends at most 150 ms beyond that core. Other low-level activity above the hold threshold is **ambiguous** (breath, noise or weak speech) and is preserved by default.
+- Confident **speech** needs >= 30 ms above the high threshold and extends at most 150 ms beyond that core. Other low-level activity above the hold threshold is **ambiguous** (breath, noise or weak speech); whether it is removed is controlled by `trim_ambiguous`.
 - Pauses shorter than 100 ms are bridged; active runs shorter than 30 ms are discarded.
 - If speech level - noise floor < 15 dB, no region is declared silent.
-- **Periodicity gate** (`use_periodicity_gate` = True): a high-energy cluster is accepted as confident speech only if it contains at least 30 ms of frames whose normalised autocorrelation peak (70-400 Hz lags, 40 ms window) is >= 0.5; otherwise it is labelled ambiguous (still preserved). Evaluated in Section 5.5. It detects voicing, not speech.
+- **Periodicity gate** (`use_periodicity_gate` = True): a high-energy cluster is accepted as confident speech only if it contains at least 30 ms of frames whose normalised autocorrelation peak (70-400 Hz lags, 40 ms window) is >= 0.5; otherwise it is labelled ambiguous. Evaluated in Section 5.5. It detects voicing, not speech.
 - Zero-crossing rate, spectral flux, spectral flatness and low-frequency energy fraction were also measured on controlled signals (Section 5.5) and were not adopted.
 
 | Recording | Noise floor (dB) | MAD (dB) | Low thr. (dB) | High thr. (dB) | Speech level (dB) | Level - noise (dB) |
@@ -97,7 +97,7 @@ Mono mix, 25 ms frames / 10 ms hop, threshold = max(P10 + 12 dB, P95 - 35 dB), p
 
 Baseline silence intervals for comparison: leading 0.000-0.182 s; internal 0.472-0.723 s; internal 1.712-1.823 s; trailing 2.092-2.472 s.
 
-- Review flag: 1 ambiguous low-level region(s) kept: level is above the noise floor but never reaches the speech-onset threshold
+- Review flag: 1 ambiguous low-level region(s): level is above the noise floor but never reaches the speech-onset threshold
 
 ![bit silence detection](../outputs/plots/bit_silence_detection.png)
 
@@ -113,7 +113,7 @@ Baseline silence intervals for comparison: leading 0.000-0.182 s; internal 0.472
 
 Baseline silence intervals for comparison: leading 0.000-0.343 s; internal 1.052-1.153 s; internal 1.333-1.692 s.
 
-- Review flag: 2 ambiguous low-level region(s) kept: level is above the noise floor but never reaches the speech-onset threshold
+- Review flag: 2 ambiguous low-level region(s): level is above the noise floor but never reaches the speech-onset threshold
 
 ![name silence detection](../outputs/plots/name_silence_detection.png)
 
@@ -125,7 +125,7 @@ The zoomed figures show waveform, frame RMS with both thresholds, and spectrogra
 
 ![name boundary review](../outputs/plots/name_boundary_review.png)
 
-**Manual observations** (visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth):
+**Manual observations** (visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth; written before the listening finding in manual_listening.json, so 'preserved' judgements below describe the conservative policy at that time):
 
 | Recording | Region | Observation | Judgement |
 |---|---|---|---|
@@ -144,7 +144,7 @@ The zoomed figures show waveform, frame RMS with both thresholds, and spectrogra
 | name | 0.158-0.287 | -31.4 | 0.62 | 0.54 / 0.78 / 0.33 | 0.77 / 0.46 / 0.28 | -0.3 | 3.4 | -29.1 / -42.9 | -11.6 / -15.8 | inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated |
 | name | 1.528-1.824 | -30.7 | 0.43 | 0.45 / 0.78 / 0.33 | 0.91 / 0.46 / 0.28 | 1.5 | 4.1 | -27.2 / -33.6 | -11.6 / -15.8 | inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated |
 
-Reading (measured): the ambiguous regions are 17-18 dB below the median level of the confident speech, and 43-62 % of their frames pass the periodicity threshold (confident speech: see table). Periodicity sits between the silence reference and voiced speech and most energy is below 300 Hz, so these features do not separate weak voicing from low-frequency noise or breath: the automated label is inconclusive. Regions with a left-minus-right level difference more than 3 dB larger than the speech's (bit 0.16-0.61 s; name 0.16-0.29 s) are more left-channel dominant than the speech, which would fit a source other than the speaker's voice (handling noise, a breath near one microphone), but this is only a hint. All regions are **preserved** (all present in the processed output).
+Reading (measured): the ambiguous regions are 17-18 dB below the median level of the confident speech, and 43-62 % of their frames pass the periodicity threshold (confident speech: see table). Periodicity sits between the silence reference and voiced speech and most energy is below 300 Hz, so these features do not separate weak voicing from low-frequency noise or breath: the automated label is inconclusive. Regions with a left-minus-right level difference more than 3 dB larger than the speech's (bit 0.16-0.61 s; name 0.16-0.29 s) are more left-channel dominant than the speech, which would fit a source other than the speaker's voice (handling noise, a breath near one microphone), but this is only a hint. Treatment: removed from the processed output (apart from up to the 100 ms edge padding next to confident speech) because the manual listening finding below reports them as noise; the automated evidence alone is inconclusive.
 
 ![bit ambiguous region 1 focus](../outputs/plots/bit_ambiguous_region_1.png)
 
@@ -154,7 +154,11 @@ Reading (measured): the ambiguous regions are 17-18 dB below the median level of
 
 Each focus figure shows, from top to bottom: the original waveform with classified regions; the processed output placed on the original time axis (confirming the region is present); frame RMS with both thresholds and the periodicity curve; and the spectrogram with detected edges (cyan) and the region edges (white).
 
-**Manual listening: not performed.** No `manual_listening.json` was supplied. `outputs/listening_checklist.md` lists clip files (`outputs/listening_test/`) with timestamps and questions for each ambiguous region. Until someone listens, the identity of these regions remains unresolved.
+**Manual listening observations** (listener: the user (reported in the working session), not recorded; setup: not recorded):
+
+- bit ambiguous region 1 (0.158-0.608 s): Reported as noise, not speech. (speech present: no)
+- name ambiguous region 1 (0.158-0.287 s): Reported as noise, not speech. (speech present: no)
+- name ambiguous region 2 (1.528-1.824 s): Reported as noise, not speech. (speech present: no)
 
 ### 5.4 Sensitivity to parameters (real recordings)
 
@@ -162,24 +166,24 @@ Boundaries and reduction when the frame length and the low-threshold margin are 
 
 | Recording | Frame (ms) | Low margin (dB) | First active (s) | Last active (s) | Speech / ambiguous regions | Removed (%) |
 |---|---|---|---|---|---|---|
-| bit | 20 | 6 | 0.135 | 2.105 | 1 / 1 | 12.2 |
-| bit | 20 | 8 | 0.155 | 2.095 | 2 / 1 | 13.4 |
-| bit | 20 | 10 | 0.165 | 2.095 | 2 / 1 | 13.8 |
-| bit | 25 | 6 | 0.147 | 2.107 | 1 / 1 | 12.6 |
-| bit | 25 | 8 | 0.158 | 2.098 | 2 / 1 | 13.4 |
-| bit | 25 | 10 | 0.168 | 2.098 | 2 / 1 | 13.8 |
-| bit | 40 | 6 | 0.145 | 2.115 | 1 / 1 | 12.2 |
-| bit | 40 | 8 | 0.155 | 2.105 | 1 / 1 | 13.0 |
-| bit | 40 | 10 | 0.165 | 2.095 | 1 / 1 | 13.8 |
-| name | 20 | 6 | 0.155 | 1.824 | 1 / 2 | 3.0 |
-| name | 20 | 8 | 0.155 | 1.824 | 1 / 2 | 3.0 |
-| name | 20 | 10 | 0.165 | 1.824 | 1 / 2 | 3.6 |
-| name | 25 | 6 | 0.158 | 1.824 | 1 / 2 | 3.2 |
-| name | 25 | 8 | 0.158 | 1.824 | 1 / 2 | 3.2 |
-| name | 25 | 10 | 0.158 | 1.824 | 1 / 2 | 3.2 |
-| name | 40 | 6 | 0.145 | 1.824 | 1 / 2 | 2.5 |
-| name | 40 | 8 | 0.155 | 1.824 | 1 / 2 | 3.0 |
-| name | 40 | 10 | 0.155 | 1.824 | 1 / 2 | 3.0 |
+| bit | 20 | 6 | 0.135 | 2.105 | 1 / 1 | 30.8 |
+| bit | 20 | 8 | 0.155 | 2.095 | 2 / 1 | 31.2 |
+| bit | 20 | 10 | 0.165 | 2.095 | 2 / 1 | 31.2 |
+| bit | 25 | 6 | 0.147 | 2.107 | 1 / 1 | 31.2 |
+| bit | 25 | 8 | 0.158 | 2.098 | 2 / 1 | 31.6 |
+| bit | 25 | 10 | 0.168 | 2.098 | 2 / 1 | 32.8 |
+| bit | 40 | 6 | 0.145 | 2.115 | 1 / 1 | 30.8 |
+| bit | 40 | 8 | 0.155 | 2.105 | 1 / 1 | 31.2 |
+| bit | 40 | 10 | 0.165 | 2.095 | 1 / 1 | 31.6 |
+| name | 20 | 6 | 0.155 | 1.824 | 1 / 2 | 30.4 |
+| name | 20 | 8 | 0.155 | 1.824 | 1 / 2 | 30.9 |
+| name | 20 | 10 | 0.165 | 1.824 | 1 / 2 | 31.5 |
+| name | 25 | 6 | 0.158 | 1.824 | 1 / 2 | 30.4 |
+| name | 25 | 8 | 0.158 | 1.824 | 1 / 2 | 30.9 |
+| name | 25 | 10 | 0.158 | 1.824 | 1 / 2 | 32.0 |
+| name | 40 | 6 | 0.145 | 1.824 | 1 / 2 | 29.8 |
+| name | 40 | 8 | 0.155 | 1.824 | 1 / 2 | 30.9 |
+| name | 40 | 10 | 0.155 | 1.824 | 1 / 2 | 31.5 |
 
 ### 5.5 Loud non-speech sounds: do extra features help? (synthetic evaluation)
 
@@ -197,36 +201,36 @@ Frame-level separability of voiced speech-like frames from loud non-speech frame
 
 Detector comparison on the speech class (rates on a 10 ms grid; FP = non-speech frames accepted as confident speech; FN = true-speech frames not accepted as confident speech; Active FN = true-speech frames that would be trimmed away):
 
-| Scenario | Energy-only FP | FN | Active FN | With periodicity gate FP | FN | Active FN |
-|---|---|---|---|---|---|---|
-| loud_click_train | 0.16 | 0.00 | 0.00 | 0.01 | 0.00 | 0.00 |
-| loud_white_noise_burst | 0.21 | 0.00 | 0.00 | 0.02 | 0.00 | 0.00 |
-| breath_like_noise_(-26dBFS) | 0.25 | 0.00 | 0.00 | 0.01 | 0.00 | 0.00 |
-| low_frequency_thump_(80Hz) | 0.16 | 0.00 | 0.00 | 0.16 | 0.00 | 0.00 |
-| quiet_voiced_speech_(rms_0.004) | 0.01 | 0.00 | 0.00 | 0.01 | 0.00 | 0.00 |
-| standalone_unvoiced_sound_(true_speech) | 0.03 | 0.00 | 0.00 | 0.01 | 0.13 | 0.00 |
-| unvoiced_sound_next_to_voiced_(true_speech) | 0.02 | 0.00 | 0.00 | 0.02 | 0.00 | 0.00 |
+| Scenario | Energy-only FP | FN | Active FN | Speech kept after trim | With periodicity gate FP | FN | Active FN | Speech kept after trim |
+|---|---|---|---|---|---|---|---|---|
+| loud_click_train | 0.16 | 0.00 | 0.00 | 1.00 | 0.01 | 0.00 | 0.00 | 1.00 |
+| loud_white_noise_burst | 0.21 | 0.00 | 0.00 | 1.00 | 0.02 | 0.00 | 0.00 | 1.00 |
+| breath_like_noise_(-26dBFS) | 0.25 | 0.00 | 0.00 | 1.00 | 0.01 | 0.00 | 0.00 | 1.00 |
+| low_frequency_thump_(80Hz) | 0.16 | 0.00 | 0.00 | 1.00 | 0.16 | 0.00 | 0.00 | 1.00 |
+| quiet_voiced_speech_(rms_0.004) | 0.01 | 0.00 | 0.00 | 1.00 | 0.01 | 0.00 | 0.00 | 1.00 |
+| standalone_unvoiced_sound_(true_speech) | 0.03 | 0.00 | 0.00 | 1.00 | 0.01 | 0.13 | 0.00 | 0.87 |
+| unvoiced_sound_next_to_voiced_(true_speech) | 0.02 | 0.00 | 0.00 | 1.00 | 0.02 | 0.00 | 0.00 | 1.00 |
 
-Findings: the periodicity gate cuts the speech false-positive rate for clicks, white-noise bursts and breath-like noise, and leaves quiet voiced speech and an unvoiced sound next to voiced speech unaffected. It does **not** help against a periodic low-frequency thump, and a standalone unvoiced sound (a fricative with no voiced neighbour) is no longer accepted as confident speech: it becomes ambiguous and is still preserved (Active FN stays 0). Its practical effect is classification and flagging, because ambiguous regions are preserved either way. The other features were not adopted: their AUCs come from stationary synthetic noise, which differs from real speech transitions, and no labelled real data exists to validate them. The pipeline therefore stays **energy-based with an optional voicing check**; it is not a validated speech/non-speech classifier. On the real recordings, running with the gate off and on gave identical regions.
+Findings: the periodicity gate cuts the speech false-positive rate for clicks, white-noise bursts and breath-like noise, and leaves quiet voiced speech and an unvoiced sound next to voiced speech unaffected. It does **not** help against a periodic low-frequency thump, and a standalone unvoiced sound (a fricative with no voiced neighbour) is no longer accepted as confident speech: it becomes ambiguous. With `trim_ambiguous` = False it is still preserved; with `trim_ambiguous` = True the 'preserved after trim' column shows what happens. Removing ambiguous regions therefore carries a real risk of cutting genuine weak or unvoiced speech in other recordings. The other features were not adopted: their AUCs come from stationary synthetic noise, which differs from real speech transitions, and no labelled real data exists to validate them. The pipeline therefore stays **energy-based with an optional voicing check**; it is not a validated speech/non-speech classifier. On the real recordings, running with the gate off and on gave identical regions.
 
 ## 6. Audio Preprocessing and Silence Removal
 
-- Leading/trailing: cut to the first/last **active** region (speech or ambiguous) with 100 ms context, and a 5 ms fade at each cut that is not the original file edge. The padding exceeds the frame length plus the measured onset ramps, so soft onsets are kept.
+- Leading/trailing: cut to the first/last **speech** region with 100 ms context, and a 5 ms fade at each cut that is not the original file edge. The padding exceeds the frame length plus the measured onset ramps, so soft onsets are kept.
 - Internal: a gap is shortened (to 200 ms) only if it is longer than 400 ms **and** both neighbours are confident speech. Natural pauses, stop closures and gaps next to ambiguous regions are preserved.
-- `trim_ambiguous` = False: ambiguous regions are not removed.
+- `trim_ambiguous` = True: ambiguous regions are removed (conservative preservation is available by setting it to False).
 - Sampling frequency, channels and 16-bit PCM format are unchanged; no gain is applied.
 
 | Recording | Original (s) | Processed (s) | Removed (s) | Removed (%) | Gaps shortened | Gaps preserved |
 |---|---|---|---|---|---|---|
-| bit | 2.472 | 2.1400 | 0.3320 | 13.4 | 0 | 2 |
-| name | 1.824 | 1.7665 | 0.0575 | 3.2 | 0 | 2 |
+| bit | 2.472 | 1.6900 | 0.7820 | 31.6 | 0 | 1 |
+| name | 1.824 | 1.2600 | 0.5640 | 30.9 | 0 | 0 |
 
 **Baseline versus improved (measured on the real recordings)**
 
-| Recording | Baseline processed (s) | Baseline removed (%) | Improved processed (s) | Improved removed (%) | Ambiguous kept (s) |
+| Recording | Baseline processed (s) | Baseline removed (%) | Improved processed (s) | Improved removed (%) | Ambiguous regions (s) |
 |---|---|---|---|---|---|
-| bit | 2.1100 | 14.6 | 2.1400 | 13.4 | 0.450 |
-| name | 1.5815 | 13.3 | 1.7665 | 3.2 | 0.426 |
+| bit | 2.1100 | 14.6 | 1.6900 | 31.6 | 0.450 |
+| name | 1.5815 | 13.3 | 1.2600 | 30.9 | 0.426 |
 
 A smaller reduction than the baseline is intentional where the baseline cut into low-level material that cannot be shown to be non-speech. The reduction is not a quality metric.
 
@@ -306,7 +310,7 @@ Deterministic synthetic signals (harmonic 'speech-like' bursts plus filtered noi
 | stereo_opposite_polarity | 0.00 | 0.99 | 1.000 | 1.000 | - | -13 / 8 | +1.20 | +0.04 |
 | stereo_unequal_levels_(R=-20dB) | 0.99 | 0.99 | 1.000 | 1.000 | 2 / 13 | -13 / 8 | +0.03 | +0.04 |
 | click_in_leading_silence | 0.98 | 0.97 | 1.000 | 1.000 | -308 / 13 | -312 / 8 | +0.33 | +0.34 |
-| noise_burst_300ms_(-34dBFS)_in_silence | 0.86 | 0.86 | 1.000 | 1.000 | -408 / 13 | -412 / 8 | +0.43 | +0.43 |
+| noise_burst_300ms_(-34dBFS)_in_silence | 0.86 | 0.86 | 1.000 | 1.000 | -408 / 13 | -412 / 8 | +0.43 | +0.18 |
 
 Lowest speech-preserved fraction of the improved pipeline across scenarios: 1.000. Observations: the improved detector recovers the speech when the file contains little silence and when the channels are out of phase (both break the baseline), and it declines to trim when speech and noise are too close to separate (SNR 10 dB: nothing is trimmed, everything is ambiguous). A 15 ms click and a 300 ms noise burst inside silence are still classed as speech/active by both detectors - energy alone cannot tell loud noise from speech.
 
@@ -314,10 +318,10 @@ No precision/recall/F1 is reported for the real recordings because no independen
 
 ## 9. Results Summary and Discussion
 
-- **bit (BIT)**: confident leading silence 0.158 s (includes leading digital zeros), trailing silence 0.374 s, 1 internal silent region(s), 1 ambiguous region(s) (0.16-0.61 s); 13.4 % of the duration removed.
-- **name (Naman Gupta)**: confident leading silence 0.158 s (includes leading digital zeros), trailing silence 0.000 s, 1 internal silent region(s), 2 ambiguous region(s) (0.16-0.29 s, 1.53-1.82 s); 3.2 % of the duration removed.
+- **bit (BIT)**: confident leading silence 0.158 s (includes leading digital zeros), trailing silence 0.374 s, 1 internal silent region(s), 1 ambiguous region(s) (0.16-0.61 s); 31.6 % of the duration removed.
+- **name (Naman Gupta)**: confident leading silence 0.158 s (includes leading digital zeros), trailing silence 0.000 s, 1 internal silent region(s), 2 ambiguous region(s) (0.16-0.29 s, 1.53-1.82 s); 30.9 % of the duration removed.
 
-Which of the ambiguous regions are breath, room noise or weak speech cannot be settled from amplitude and the spectrograms alone, so they are kept. Removing them (`trim_ambiguous=True`) would shorten the files further but risks clipping speech; that is a decision for listening review.
+Which of the ambiguous regions are breath, room noise or weak speech cannot be settled from amplitude and the spectrograms alone; the automated evidence is inconclusive. They are removed from the processed audio because the user-reported listening finding (Section 5.3) says all of them are noise; that finding is recorded, not independently verified here, and `trim_ambiguous=False` restores preservation.
 
 ## 10. Limitations
 
@@ -326,20 +330,20 @@ Status of each earlier limitation after this round of work:
 | Limitation | Status | Evidence |
 |---|---|---|
 | Spoken content only declared | **Partly addressed, still unverified** | Offline ASR run (Section 3.1): statuses bit: partially_supported, name: partially_supported. ASR is not ground truth; no listening check. |
-| Ambiguous low-level regions unresolved | **Investigated, still unresolved** | Features and plots (Section 5.3) are inconclusive; the regions are preserved. A listening check is needed. |
+| Ambiguous low-level regions unresolved | **Resolved by manual listening (user-reported), not by automation** | Features and plots (Section 5.3) are inconclusive; the user reported all three regions as noise, and they are removed. The report records this as a manual observation without details of setup. |
 | Join quality not tested on real audio | **Clarified** | No joins exist in the real outputs (Section 6.2). Numerical continuity was validated on synthetic signals only. |
-| Perceptual smoothness of joins | **Unchanged (not evaluated)** | Listening material is provided; no listening has been performed unless `manual_listening.json` exists. |
+| Perceptual smoothness of joins | **Unchanged (not evaluated)** | Listening material is provided; the only recorded listening finding concerns the ambiguous regions, not joins or the spoken content. |
 | Loud non-speech sounds look like speech | **Partly mitigated** | The periodicity gate reduces false positives on synthetic clicks, noise bursts and breath-like noise (Section 5.5); it fails on a periodic thump and is not validated on real labelled data. |
 
 Further limitations:
 
 - Detection is energy-based with an optional voicing check. It is not a validated speech/non-speech classifier; very quiet speech near the noise floor may be labelled ambiguous or, in the worst case, silence.
 - Thresholds assume the quietest frames represent the background noise; this fails if a recording has no noise-only frames. The minimum-separation guard only partly mitigates this.
-- A standalone unvoiced sound is not accepted as confident speech by the periodicity gate (it is kept as ambiguous).
+- A standalone unvoiced sound is not accepted as confident speech by the periodicity gate (it is labelled ambiguous).
 - Manual boundary observations come from plots, not listening, and are not ground truth.
 - Synthetic results show behaviour on simplified signals and need not transfer to the real recordings.
 - Spectrogram appearance depends on window length, hop and dB range.
 
 ## 11. Conclusion
 
-Both recordings were analysed with a conservative hysteresis detector. Offline recognition gives partial, non-definitive support for the declared utterances; the ambiguous low-level regions could not be classified from automated evidence and are preserved; no joins were created in the real outputs, so join behaviour is validated on synthetic signals only; and a periodicity gate measurably reduces false speech labels on synthetic non-speech sounds without changing the real-recording regions. Listening checks remain necessary for the ambiguous regions, the spoken content and the perceptual quality of joins. All measured values are in `analysis_results.json`; the frozen pre-change results are in `baseline_results.json`.
+Both recordings were analysed with a conservative hysteresis detector. Offline recognition gives partial, non-definitive support for the declared utterances; the ambiguous low-level regions could not be classified from automated evidence, and are treated according to the manual listening finding; no joins were created in the real outputs, so join behaviour is validated on synthetic signals only; and a periodicity gate measurably reduces false speech labels on synthetic non-speech sounds without changing the real-recording regions. Listening checks remain necessary for the ambiguous regions, the spoken content and the perceptual quality of joins. All measured values are in `analysis_results.json`; the frozen pre-change results are in `baseline_results.json`.

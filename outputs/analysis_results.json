@@ -18,7 +18,7 @@
     "min_snr_db": 15.0,
     "min_core_ms": 30.0,
     "max_extension_ms": 150.0,
-    "trim_ambiguous": false,
+    "trim_ambiguous": true,
     "use_periodicity_gate": true,
     "periodicity_frame_ms": 40.0,
     "pitch_min_hz": 70.0,
@@ -126,7 +126,7 @@
           }
         ],
         "flags": [
-          "1 ambiguous low-level region(s) kept: level is above the noise floor but never reaches the speech-onset threshold"
+          "1 ambiguous low-level region(s): level is above the noise floor but never reaches the speech-onset threshold"
         ],
         "threshold_db": -34.58725456913416,
         "low_threshold_db": -34.58725456913416,
@@ -141,22 +141,12 @@
       "trimming": {
         "kept_segments": [
           [
-            0.0575,
+            0.5075,
             2.1975
           ]
         ],
         "shortened_gaps": [],
         "preserved_gaps": [
-          {
-            "start_s": 0.6075,
-            "end_s": 0.6075,
-            "duration_s": 0.0,
-            "neighbours": [
-              "ambiguous",
-              "speech"
-            ],
-            "reason": "gap not longer than max_internal_gap_ms"
-          },
           {
             "start_s": 1.7175,
             "end_s": 1.8175,
@@ -173,15 +163,15 @@
       },
       "reduction": {
         "original_duration_s": 2.472,
-        "processed_duration_s": 2.14,
-        "removed_duration_s": 0.33199999999999985,
-        "percent_removed": 13.430420711974103
+        "processed_duration_s": 1.69,
+        "removed_duration_s": 0.782,
+        "percent_removed": 31.63430420711974
       },
       "processed_stats": {
         "peak_amplitude": 0.9522705078125,
-        "rms_amplitude": 0.17355040909205502,
+        "rms_amplitude": 0.19429580273613006,
         "peak_db_fs": -0.4247933145987084,
-        "rms_db_fs": -15.211487165446663
+        "rms_db_fs": -14.2307316223628
       },
       "processed_file": "outputs/processed_audio/Naman_BIT_processed.wav",
       "baseline": {
@@ -282,8 +272,8 @@
           "last_active_end_s": 2.105,
           "n_speech": 1,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.17,
-          "percent_removed": 12.216828478964404
+          "processed_duration_s": 1.71,
+          "percent_removed": 30.8252427184466
         },
         {
           "frame_ms": 20.0,
@@ -292,8 +282,8 @@
           "last_active_end_s": 2.095,
           "n_speech": 2,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.14,
-          "percent_removed": 13.430420711974111
+          "processed_duration_s": 1.7,
+          "percent_removed": 31.22977346278317
         },
         {
           "frame_ms": 20.0,
@@ -302,8 +292,8 @@
           "last_active_end_s": 2.095,
           "n_speech": 2,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.13,
-          "percent_removed": 13.834951456310684
+          "processed_duration_s": 1.7,
+          "percent_removed": 31.22977346278317
         },
         {
           "frame_ms": 25.0,
@@ -312,8 +302,8 @@
           "last_active_end_s": 2.1075,
           "n_speech": 1,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.16,
-          "percent_removed": 12.621359223300976
+          "processed_duration_s": 1.7,
+          "percent_removed": 31.22977346278317
         },
         {
           "frame_ms": 25.0,
@@ -322,8 +312,8 @@
           "last_active_end_s": 2.0975,
           "n_speech": 2,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.14,
-          "percent_removed": 13.430420711974111
+          "processed_duration_s": 1.69,
+          "percent_removed": 31.634304207119747
         },
         {
           "frame_ms": 25.0,
@@ -332,8 +322,8 @@
           "last_active_end_s": 2.0975,
           "n_speech": 2,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.13,
-          "percent_removed": 13.834951456310684
+          "processed_duration_s": 1.66,
+          "percent_removed": 32.84789644012945
         },
         {
           "frame_ms": 40.0,
@@ -342,8 +332,8 @@
           "last_active_end_s": 2.115,
           "n_speech": 1,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.17,
-          "percent_removed": 12.216828478964404
+          "processed_duration_s": 1.71,
+          "percent_removed": 30.8252427184466
         },
         {
           "frame_ms": 40.0,
@@ -352,8 +342,8 @@
           "last_active_end_s": 2.105,
           "n_speech": 1,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.15,
-          "percent_removed": 13.02588996763754
+          "processed_duration_s": 1.7,
+          "percent_removed": 31.22977346278317
         },
         {
           "frame_ms": 40.0,
@@ -362,8 +352,8 @@
           "last_active_end_s": 2.095,
           "n_speech": 1,
           "n_ambiguous": 1,
-          "processed_duration_s": 2.13,
-          "percent_removed": 13.834951456310684
+          "processed_duration_s": 1.69,
+          "percent_removed": 31.634304207119747
         }
       ],
       "region_analysis": [
@@ -412,9 +402,9 @@
             "low_freq_fraction_<300Hz_median": 0.4780527358778622
           },
           "automated_label": "inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated",
-          "decision": "preserved (evidence insufficient to separate speech from noise or breath)",
+          "decision": "removable: automated evidence is inconclusive, so removal rests on the manual listening finding",
           "focus_plot": "outputs/plots/bit_ambiguous_region_1.png",
-          "kept_in_processed_output": true
+          "kept_in_processed_output": false
         }
       ],
       "periodicity_gate_changed_regions": false,
@@ -434,13 +424,13 @@
           "original_file_unchanged": true
         },
         "passed": true,
-        "num_samples": 102720,
+        "num_samples": 81120,
         "sampling_frequency_hz": 48000,
         "peak_amplitude": 0.9522705078125,
         "joins": {
           "checked": 0,
           "join_max_step": 0.0,
-          "reference_p99_9_step": 0.23263079833984435,
+          "reference_p99_9_step": 0.2372040405273479,
           "ok": true,
           "joins_created": 0,
           "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
@@ -585,7 +575,7 @@
           }
         ],
         "flags": [
-          "2 ambiguous low-level region(s) kept: level is above the noise floor but never reaches the speech-onset threshold"
+          "2 ambiguous low-level region(s): level is above the noise floor but never reaches the speech-onset threshold"
         ],
         "threshold_db": -34.405470459855906,
         "low_threshold_db": -34.405470459855906,
@@ -600,47 +590,26 @@
       "trimming": {
         "kept_segments": [
           [
-            0.0575,
-            1.824
+            0.1875,
+            1.4475
           ]
         ],
         "shortened_gaps": [],
-        "preserved_gaps": [
-          {
-            "start_s": 0.2875,
-            "end_s": 0.2875,
-            "duration_s": 0.0,
-            "neighbours": [
-              "ambiguous",
-              "speech"
-            ],
-            "reason": "gap not longer than max_internal_gap_ms"
-          },
-          {
-            "start_s": 1.3475,
-            "end_s": 1.5275,
-            "duration_s": 0.18,
-            "neighbours": [
-              "speech",
-              "ambiguous"
-            ],
-            "reason": "gap not longer than max_internal_gap_ms"
-          }
-        ],
+        "preserved_gaps": [],
         "join_samples": [],
         "note": "gaps are shortened only between two confident-speech regions and only when longer than max_internal_gap_ms"
       },
       "reduction": {
         "original_duration_s": 1.824,
-        "processed_duration_s": 1.7665,
-        "removed_duration_s": 0.05750000000000011,
-        "percent_removed": 3.15241228070176
+        "processed_duration_s": 1.26,
+        "removed_duration_s": 0.5640000000000001,
+        "percent_removed": 30.92105263157895
       },
       "processed_stats": {
         "peak_amplitude": 0.947723388671875,
-        "rms_amplitude": 0.1693315116665589,
+        "rms_amplitude": 0.19973335099439066,
         "peak_db_fs": -0.46636802755380297,
-        "rms_db_fs": -15.425244290878158
+        "rms_db_fs": -13.990988232487574
       },
       "processed_file": "outputs/processed_audio/Naman_Name_processed.wav",
       "baseline": {
@@ -735,8 +704,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.769,
-          "percent_removed": 3.0153508771929793
+          "processed_duration_s": 1.27,
+          "percent_removed": 30.372807017543856
         },
         {
           "frame_ms": 20.0,
@@ -745,8 +714,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.769,
-          "percent_removed": 3.0153508771929793
+          "processed_duration_s": 1.26,
+          "percent_removed": 30.92105263157895
         },
         {
           "frame_ms": 20.0,
@@ -755,8 +724,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.759,
-          "percent_removed": 3.5635964912280715
+          "processed_duration_s": 1.25,
+          "percent_removed": 31.46929824561403
         },
         {
           "frame_ms": 25.0,
@@ -765,8 +734,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.7665,
-          "percent_removed": 3.152412280701755
+          "processed_duration_s": 1.27,
+          "percent_removed": 30.372807017543856
         },
         {
           "frame_ms": 25.0,
@@ -775,8 +744,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.7665,
-          "percent_removed": 3.152412280701755
+          "processed_duration_s": 1.26,
+          "percent_removed": 30.92105263157895
         },
         {
           "frame_ms": 25.0,
@@ -785,8 +754,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.7665,
-          "percent_removed": 3.152412280701755
+          "processed_duration_s": 1.24,
+          "percent_removed": 32.01754385964912
         },
         {
           "frame_ms": 40.0,
@@ -795,8 +764,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.779,
-          "percent_removed": 2.4671052631578982
+          "processed_duration_s": 1.28,
+          "percent_removed": 29.824561403508774
         },
         {
           "frame_ms": 40.0,
@@ -805,8 +774,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.769,
-          "percent_removed": 3.0153508771929793
+          "processed_duration_s": 1.26,
+          "percent_removed": 30.92105263157895
         },
         {
           "frame_ms": 40.0,
@@ -815,8 +784,8 @@
           "last_active_end_s": 1.824,
           "n_speech": 1,
           "n_ambiguous": 2,
-          "processed_duration_s": 1.769,
-          "percent_removed": 3.0153508771929793
+          "processed_duration_s": 1.25,
+          "percent_removed": 31.46929824561403
         }
       ],
       "region_analysis": [
@@ -865,9 +834,9 @@
             "low_freq_fraction_<300Hz_median": 0.28356383384080924
           },
           "automated_label": "inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated",
-          "decision": "preserved (evidence insufficient to separate speech from noise or breath)",
+          "decision": "removable: automated evidence is inconclusive, so removal rests on the manual listening finding",
           "focus_plot": "outputs/plots/name_ambiguous_region_1.png",
-          "kept_in_processed_output": true
+          "kept_in_processed_output": false
         },
         {
           "region": {
@@ -914,9 +883,9 @@
             "low_freq_fraction_<300Hz_median": 0.28356383384080924
           },
           "automated_label": "inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated",
-          "decision": "preserved (evidence insufficient to separate speech from noise or breath)",
+          "decision": "removable: automated evidence is inconclusive, so removal rests on the manual listening finding",
           "focus_plot": "outputs/plots/name_ambiguous_region_2.png",
-          "kept_in_processed_output": true
+          "kept_in_processed_output": false
         }
       ],
       "periodicity_gate_changed_regions": false,
@@ -936,13 +905,13 @@
           "original_file_unchanged": true
         },
         "passed": true,
-        "num_samples": 84792,
+        "num_samples": 60480,
         "sampling_frequency_hz": 48000,
         "peak_amplitude": 0.947723388671875,
         "joins": {
           "checked": 0,
           "join_max_step": 0.0,
-          "reference_p99_9_step": 0.14824768066406602,
+          "reference_p99_9_step": 0.15383258056640803,
           "ok": true,
           "joins_created": 0,
           "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
@@ -1611,9 +1580,9 @@
           "speech_only_recall": 1.0,
           "start_error_ms": -412.5,
           "end_error_ms": 7.500000000000284,
-          "processed_duration_s": 2.2275,
+          "processed_duration_s": 1.98,
           "ideal_duration_s": 1.8,
-          "duration_error_s": 0.4275,
+          "duration_error_s": 0.17999999999999994,
           "speech_preserved_fraction": 1.0,
           "detected_speech_s": 1.5800000000000003,
           "detected_ambiguous_s": 0.26
@@ -1627,11 +1596,13 @@
     "scenarios": {
       "loud_click_train": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.16363636363636364,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.013636363636363636,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
@@ -1639,11 +1610,13 @@
       },
       "loud_white_noise_burst": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.20909090909090908,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.01818181818181818,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
@@ -1651,11 +1624,13 @@
       },
       "breath_like_noise_(-26dBFS)": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.25,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.013636363636363636,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
@@ -1663,11 +1638,13 @@
       },
       "low_frequency_thump_(80Hz)": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.1590909090909091,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.1590909090909091,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
@@ -1675,11 +1652,13 @@
       },
       "quiet_voiced_speech_(rms_0.004)": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.00909090909090909,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.00909090909090909,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
@@ -1687,11 +1666,13 @@
       },
       "standalone_unvoiced_sound_(true_speech)": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.025,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 0.8666666666666667,
           "speech_false_positive_rate": 0.015,
           "speech_false_negative_rate": 0.13333333333333333,
           "active_false_negative_rate": 0.0
@@ -1699,11 +1680,13 @@
       },
       "unvoiced_sound_next_to_voiced_(true_speech)": {
         "energy_only": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.01951219512195122,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
         },
         "with_periodicity_gate": {
+          "speech_preserved_after_trim": 1.0,
           "speech_false_positive_rate": 0.01951219512195122,
           "speech_false_negative_rate": 0.0,
           "active_false_negative_rate": 0.0
@@ -1771,7 +1754,7 @@
     "bit": {
       "checked": 0,
       "join_max_step": 0.0,
-      "reference_p99_9_step": 0.23263079833984435,
+      "reference_p99_9_step": 0.2372040405273479,
       "ok": true,
       "joins_created": 0,
       "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
@@ -1779,7 +1762,7 @@
     "name": {
       "checked": 0,
       "join_max_step": 0.0,
-      "reference_p99_9_step": 0.14824768066406602,
+      "reference_p99_9_step": 0.15383258056640803,
       "ok": true,
       "joins_created": 0,
       "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
@@ -1798,7 +1781,7 @@
     "listening_performed": false
   },
   "manual_review": {
-    "basis": "visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth",
+    "basis": "visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth; written before the listening finding in manual_listening.json, so 'preserved' judgements below describe the conservative policy at that time",
     "reviews": [
       {
         "recording": "bit",
@@ -1838,7 +1821,28 @@
       }
     ]
   },
-  "manual_listening": null,
+  "manual_listening": {
+    "listener": "the user (reported in the working session)",
+    "date": "not recorded",
+    "setup": "not recorded",
+    "observations": [
+      {
+        "item": "bit ambiguous region 1 (0.158-0.608 s)",
+        "finding": "Reported as noise, not speech.",
+        "speech_present": "no"
+      },
+      {
+        "item": "name ambiguous region 1 (0.158-0.287 s)",
+        "finding": "Reported as noise, not speech.",
+        "speech_present": "no"
+      },
+      {
+        "item": "name ambiguous region 2 (1.528-1.824 s)",
+        "finding": "Reported as noise, not speech.",
+        "speech_present": "no"
+      }
+    ]
+  },
   "content_verification": {
     "basis": "Recognition output is supporting evidence only, not ground truth. Audio stays on this machine.",
     "manual_procedure": [

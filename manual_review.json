@@ -1,23 +1,41 @@
 {
-  "basis": "visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth",
+  "basis": "visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth; written before the listening finding in manual_listening.json, so 'preserved' judgements below describe the conservative policy at that time",
   "reviews": [
-    {"recording": "bit", "region": "0.16-0.61 s (ambiguous)",
-     "observation": "Low-level (-35 to -22 dB) impulsive activity: isolated spikes mostly in the left channel and a vertical broadband line near 0.26 s in the spectrogram; no harmonic stripes. Voiced low-frequency energy only starts near 0.72 s.",
-     "judgement": "Probably mouth/handling clicks or breath rather than speech, but not provable from the plots. Preserved (conservative)."},
-    {"recording": "bit", "region": "0.61-0.72 s (confident speech by extension)",
-     "observation": "Frame RMS dips to the noise floor around 0.56-0.70 s and the vowel's harmonic band appears at about 0.72 s. This stretch is labelled speech only because it lies within the 150 ms onset extension.",
-     "judgement": "Boundary is conservative (starts about 0.1 s before the visible onset). Acceptable."},
-    {"recording": "bit", "region": "end of file, trailing silence from about 2.10 s",
-     "observation": "Vowel energy decays smoothly into a flat noise floor (about -42 dB) with no harmonic structure in the spectrogram.",
-     "judgement": "Confident silence; trimmed with 100 ms padding."},
-    {"recording": "name", "region": "0.16-0.29 s (ambiguous) and 0.29-0.44 s (speech by extension)",
-     "observation": "Broadband low-level noise about 8-12 dB above the floor with no harmonic structure; clear voiced onset (harmonics, rising RMS) at about 0.44 s.",
-     "judgement": "Likely background noise or breath; ambiguous, preserved. The earlier baseline had cut this to start at 0.34 s."},
-    {"recording": "name", "region": "1.35-1.53 s (internal silence)",
-     "observation": "After the vowel of the last syllable decays (about 1.3 s) the frame RMS sits at the noise floor for about 0.18 s.",
-     "judgement": "Confident internal silence but shorter than 400 ms and next to an ambiguous region, so it is preserved, not shortened."},
-    {"recording": "name", "region": "1.53-1.82 s (ambiguous, kept to end of file)",
-     "observation": "Low-level activity (-35 to -25 dB), mostly energy below about 300 Hz, no word-like harmonic structure after the burst and vowel that end near 1.3 s.",
-     "judgement": "Probably breath, handling or room noise, but unresolved. Preserved; it is the main remaining uncertainty."}
+    {
+      "recording": "bit",
+      "region": "0.16-0.61 s (ambiguous)",
+      "observation": "Low-level (-35 to -22 dB) impulsive activity: isolated spikes mostly in the left channel and a vertical broadband line near 0.26 s in the spectrogram; no harmonic stripes. Voiced low-frequency energy only starts near 0.72 s.",
+      "judgement": "Probably mouth/handling clicks or breath rather than speech, but not provable from the plots. Preserved (conservative)."
+    },
+    {
+      "recording": "bit",
+      "region": "0.61-0.72 s (confident speech by extension)",
+      "observation": "Frame RMS dips to the noise floor around 0.56-0.70 s and the vowel's harmonic band appears at about 0.72 s. This stretch is labelled speech only because it lies within the 150 ms onset extension.",
+      "judgement": "Boundary is conservative (starts about 0.1 s before the visible onset). Acceptable."
+    },
+    {
+      "recording": "bit",
+      "region": "end of file, trailing silence from about 2.10 s",
+      "observation": "Vowel energy decays smoothly into a flat noise floor (about -42 dB) with no harmonic structure in the spectrogram.",
+      "judgement": "Confident silence; trimmed with 100 ms padding."
+    },
+    {
+      "recording": "name",
+      "region": "0.16-0.29 s (ambiguous) and 0.29-0.44 s (speech by extension)",
+      "observation": "Broadband low-level noise about 8-12 dB above the floor with no harmonic structure; clear voiced onset (harmonics, rising RMS) at about 0.44 s.",
+      "judgement": "Likely background noise or breath; ambiguous, preserved. The earlier baseline had cut this to start at 0.34 s."
+    },
+    {
+      "recording": "name",
+      "region": "1.35-1.53 s (internal silence)",
+      "observation": "After the vowel of the last syllable decays (about 1.3 s) the frame RMS sits at the noise floor for about 0.18 s.",
+      "judgement": "Confident internal silence but shorter than 400 ms and next to an ambiguous region, so it is preserved, not shortened."
+    },
+    {
+      "recording": "name",
+      "region": "1.53-1.82 s (ambiguous, kept to end of file)",
+      "observation": "Low-level activity (-35 to -25 dB), mostly energy below about 300 Hz, no word-like harmonic structure after the burst and vowel that end near 1.3 s.",
+      "judgement": "Probably breath, handling or room noise, but unresolved. Preserved; it is the main remaining uncertainty."
+    }
   ]
 }
