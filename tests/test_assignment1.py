@@ -262,3 +262,105 @@ def test_real_recordings_outputs_consistent():
         proc = sf.info(str(ROOT / r["processed_file"]))
         assert proc.frames == r["validation"]["num_samples"] and proc.samplerate == info.samplerate
         assert r["validation"]["passed"]
+
+
+# ---- periodicity gate, region evidence, joins, verification (second round)
+import evaluation_events as ee  # noqa: E402
+import regions as rg  # noqa: E402
+import verify_content as vc  # noqa: E402
+
+
+def test_periodicity_high_for_voiced_low_for_noise():
+    rng = np.random.default_rng(5)
+    voiced = ev.speech_like(0.5, 0.1, rng)[:, None]
+    noisy = (0.1 * rng.standard_normal(int(0.5 * ev.FS)))[:, None]
+    pv = a.frame_periodicity(voiced, ev.FS, CFG)
+    pn = a.frame_periodicity(noisy, ev.FS, CFG)
+    assert np.median(pv) > 0.8 and np.median(pn) < 0.4
+
+
+def test_periodicity_handles_short_and_empty():
+    assert a.frame_periodicity(np.zeros((0, 1)), FS, CFG).size == 0
+    assert np.all(np.isfinite(a.frame_periodicity(np.ones((50, 1)), FS, CFG)))
+
+
+def test_gate_turns_loud_noise_burst_into_ambiguous_but_preserves_it():
+    sc = ee.event_scenarios()["loud_white_noise_burst"]
+    from dataclasses import replace
+    off = a.detect_silence(sc["x"], ev.FS, replace(CFG, use_periodicity_gate=False))
+    on = a.detect_silence(sc["x"], ev.FS, replace(CFG, use_periodicity_gate=True))
+    dur = lambda d: sum(r["duration_s"] for r in d["speech"])  # noqa: E731
+    assert dur(on) < dur(off)
+    out, info = a.trim_silence(sc["x"], ev.FS, on, CFG)
+    assert info["kept_segments"][0][0] <= 0.1 + 1e-6  # event at 0.1-0.5 s is kept, not trimmed
+
+
+def test_feature_evaluation_reports_expected_structure_and_benefit():
+    fe = ee.run_feature_evaluation(CFG)
+    assert set(fe["feature_auc"]) >= {"periodicity", "zcr", "spectral_flux"}
+    s = fe["scenarios"]["loud_click_train"]
+    assert s["with_periodicity_gate"]["speech_false_positive_rate"] < s["energy_only"]["speech_false_positive_rate"]
+    for v in fe["scenarios"].values():
+        assert v["with_periodicity_gate"]["active_false_negative_rate"] <= 0.02  # gating never causes data loss
+
+
+def test_synthetic_join_validation_detects_bad_join_and_fade_fixes_it():
+    res, audio = ee.join_validation(CFG)
+    assert res["natural_case"]["joins_created"] == 1 and res["natural_case"]["check"]["ok"]
+    assert not res["stress_case"]["plain_cut_fade_0ms"]["ok"]
+    assert res["stress_case"]["configured_fade"]["ok"]
+    sig, joins = audio["configured_fade"]
+    assert sig.shape[0] > joins[0] > 0
+
+
+def test_real_style_pipeline_reports_join_not_applicable(tmp_path):
+    audio = tmp_path / "audio"
+    audio.mkdir()
+    x = np.concatenate([tone(0.3, 0.001), tone(0.5, 0.4), tone(0.3, 0.001)])[:, None]  # no internal gap
+    write(audio / "Naman_BIT.wav", x)
+    write(audio / "Naman_Name.wav", x)
+    res = a.run(audio, tmp_path / "out", CFG)
+    j = res["recordings"]["bit"]["validation"]["joins"]
+    assert j["joins_created"] == 0 and j["applicability"].startswith("not applicable")
+    assert "joins_without_discontinuity" not in res["recordings"]["bit"]["validation"]["checks"]
+    assert "synthetic_join_validation" in res and res["listening_materials"]["listening_performed"] is False
+    assert (tmp_path / "out" / "listening_checklist.md").exists()
+
+
+def test_region_features_returns_evidence_without_claiming_speech():
+    rng = np.random.default_rng(3)
+    x = np.concatenate([1e-3 * rng.standard_normal(FS), 0.01 * rng.standard_normal(FS // 2), 1e-3 * rng.standard_normal(FS),
+                        tone(0.5, 0.3), 1e-3 * rng.standard_normal(FS)])[:, None]
+    det = a.detect_silence(x, FS, CFG)
+    assert det["ambiguous"]
+    e = rg.region_features(x, FS, det, det["ambiguous"][0], CFG)
+    assert e["decision"].startswith("preserved") and "speech" in e["automated_label"] + "speech"
+    assert e["region_features"]["rms_db_median"] < e["reference_confident_speech"]["rms_db_median"]
+
+
+def test_verify_content_comparison_and_unverified_without_engines(monkeypatch, tmp_path):
+    assert vc.compare("BIT", "B-I-T.")["consistent_with_expected"]
+    assert not vc.compare("Naman Gupta", "The city ID")["consistent_with_expected"]
+    write(tmp_path / "Naman_BIT.wav", synth())
+    write(tmp_path / "Naman_Name.wav", synth())
+    monkeypatch.setattr(vc, "run_whisper", lambda *a_, **k: {"engine": "x", "available": False, "reason": "test"})
+    monkeypatch.setattr(vc, "run_windows_sapi", lambda *a_, **k: {"engine": "y", "available": False, "reason": "test"})
+    res = vc.verify(tmp_path)
+    assert all(r["status"] == "unverified" for r in res["recordings"].values())
+    assert res["manual_procedure"]
+
+
+def test_real_outputs_paths_exist_and_durations_match_saved_audio():
+    res_path = ROOT / "outputs" / "analysis_results.json"
+    if not res_path.exists():
+        pytest.skip("run python assignment1.py first")
+    res = json.loads(res_path.read_text())
+    for r in res["recordings"].values():
+        for p in list(r["plots"].values()) + [r["processed_file"]] + [e["focus_plot"] for e in r["region_analysis"]]:
+            assert (ROOT / p).is_file(), p
+        saved = sf.info(str(ROOT / r["processed_file"]))
+        assert saved.frames / saved.samplerate == pytest.approx(r["reduction"]["processed_duration_s"])
+    assert (ROOT / res["synthetic_join_validation"]["plot"]).is_file()
+    for k, r in res["recordings"].items():
+        h = r["validation"]["original_sha256"]
+        assert a.sha256_of(ROOT / "audio" / r["metadata"]["source_file"]) == h

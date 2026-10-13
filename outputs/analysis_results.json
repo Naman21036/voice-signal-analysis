@@ -19,6 +19,12 @@
     "min_core_ms": 30.0,
     "max_extension_ms": 150.0,
     "trim_ambiguous": false,
+    "use_periodicity_gate": true,
+    "periodicity_frame_ms": 40.0,
+    "pitch_min_hz": 70.0,
+    "pitch_max_hz": 400.0,
+    "min_periodicity": 0.5,
+    "min_periodic_ms": 30.0,
     "edge_pad_ms": 100.0,
     "max_internal_gap_ms": 400.0,
     "kept_gap_ms": 200.0,
@@ -32,7 +38,7 @@
     "bit": {
       "declared_utterance": "BIT",
       "identity_source": "manifest.json",
-      "content_verification": "Declared utterance only. No speech recognition was run, so the spoken content is NOT independently verified.",
+      "content_verification": "Recognition evidence (supporting, not ground truth): status partially_supported. Spoken content is NOT independently verified by listening.",
       "metadata": {
         "source_file": "Naman_BIT.wav",
         "format": "WAV",
@@ -128,6 +134,7 @@
         "noise_floor_db": -42.58725456913416,
         "speech_level_db": -9.634992514661462,
         "min_core_ms": 30.0,
+        "min_periodic_ms": 30.0,
         "noise_mad_db": 1.1310299109817097,
         "level_minus_noise_db": 32.9522620544727
       },
@@ -359,6 +366,58 @@
           "percent_removed": 13.834951456310684
         }
       ],
+      "region_analysis": [
+        {
+          "region": {
+            "start_s": 0.1575,
+            "end_s": 0.6075,
+            "duration_s": 0.45000000000000007,
+            "type": "ambiguous"
+          },
+          "reference_speech_channel_level_db": [
+            -11.676055271482635,
+            -16.245422975659356
+          ],
+          "region_features": {
+            "frames": 45,
+            "rms_db_median": -31.966794943134374,
+            "periodicity_median": 0.504277100789876,
+            "periodic_frame_fraction": 0.5111111111111111,
+            "zcr_median": 0.0475396163469558,
+            "spectral_flatness_median": 0.0011661130801085518,
+            "low_freq_fraction_<300Hz_median": 0.8140444350735859
+          },
+          "kurtosis_excess": 2.9397737171011284,
+          "crest_factor": 7.011112732326072,
+          "channel_level_db": [
+            -25.555310378111926,
+            -36.23746026339388
+          ],
+          "reference_confident_speech": {
+            "frames": 139,
+            "rms_db_median": -14.191406280629558,
+            "periodicity_median": 0.9286357155493876,
+            "periodic_frame_fraction": 0.8848920863309353,
+            "zcr_median": 0.02585487906588824,
+            "spectral_flatness_median": 5.297301313705431e-05,
+            "low_freq_fraction_<300Hz_median": 0.7246629877191832
+          },
+          "reference_confident_silence": {
+            "frames": 52,
+            "rms_db_median": -41.15274001329574,
+            "periodicity_median": 0.43072530836016876,
+            "periodic_frame_fraction": 0.38461538461538464,
+            "zcr_median": 0.0646371976647206,
+            "spectral_flatness_median": 0.005192126614906154,
+            "low_freq_fraction_<300Hz_median": 0.4780527358778622
+          },
+          "automated_label": "inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated",
+          "decision": "preserved (evidence insufficient to separate speech from noise or breath)",
+          "focus_plot": "outputs/plots/bit_ambiguous_region_1.png",
+          "kept_in_processed_output": true
+        }
+      ],
+      "periodicity_gate_changed_regions": false,
       "validation": {
         "file": "C:\\Users\\naman\\OneDrive\\Desktop\\assignment\\outputs\\processed_audio\\Naman_BIT_processed.wav",
         "checks": {
@@ -372,7 +431,6 @@
           "matches_processed_array_within_1lsb": true,
           "no_clipped_samples": true,
           "peak_not_above_original": true,
-          "joins_without_discontinuity": true,
           "original_file_unchanged": true
         },
         "passed": true,
@@ -383,7 +441,9 @@
           "checked": 0,
           "join_max_step": 0.0,
           "reference_p99_9_step": 0.23263079833984435,
-          "ok": true
+          "ok": true,
+          "joins_created": 0,
+          "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
         },
         "original_sha256": "ed741584d94368c6825079324ccc682f95fac7009e226848df11f9552fc6a34d"
       },
@@ -395,12 +455,55 @@
         "spectrogram": "outputs/plots/bit_spectrogram.png",
         "spectrogram_processed": "outputs/plots/bit_spectrogram_processed.png",
         "spectrogram_resolution": "outputs/plots/bit_spectrogram_resolution.png"
+      },
+      "recognition_evidence": {
+        "file": "Naman_BIT.wav",
+        "declared_utterance": "BIT",
+        "status": "partially_supported",
+        "note": "1 of 2 engines agree; the others disagreed or returned low-confidence text. Treat as unverified until listened to.",
+        "engines": [
+          {
+            "engine": "faster-whisper (offline, CPU, int8)",
+            "available": true,
+            "model": "models--Systran--faster-distil-whisper-medium.en",
+            "transcript": "BIT",
+            "avg_logprob": [
+              -0.709
+            ],
+            "no_speech_prob": [
+              0.028
+            ],
+            "note": "Whisper may write spoken letters as 'B-I-T'; comparison ignores punctuation.",
+            "comparison": {
+              "expected_normalised": "bit",
+              "heard_normalised": "bit",
+              "similarity": 1.0,
+              "consistent_with_expected": true
+            }
+          },
+          {
+            "engine": "Windows System.Speech dictation (offline, en-US)",
+            "available": true,
+            "transcript": "The FBI B",
+            "confidence": [
+              0.023
+            ],
+            "note": "Desktop dictation engine; weak on isolated short words.",
+            "comparison": {
+              "expected_normalised": "bit",
+              "heard_normalised": "thefbib",
+              "similarity": 0.4,
+              "consistent_with_expected": false
+            }
+          }
+        ],
+        "confidence": "limited: very short recordings, few engines, no ground-truth transcript"
       }
     },
     "name": {
       "declared_utterance": "Naman Gupta",
       "identity_source": "manifest.json",
-      "content_verification": "Declared utterance only. No speech recognition was run, so the spoken content is NOT independently verified.",
+      "content_verification": "Recognition evidence (supporting, not ground truth): status partially_supported. Spoken content is NOT independently verified by listening.",
       "metadata": {
         "source_file": "Naman_Name.wav",
         "format": "WAV",
@@ -490,6 +593,7 @@
         "noise_floor_db": -42.405470459855906,
         "speech_level_db": -9.669061708571846,
         "min_core_ms": 30.0,
+        "min_periodic_ms": 30.0,
         "noise_mad_db": 1.4216508063148543,
         "level_minus_noise_db": 32.73640875128406
       },
@@ -715,6 +819,107 @@
           "percent_removed": 3.0153508771929793
         }
       ],
+      "region_analysis": [
+        {
+          "region": {
+            "start_s": 0.1575,
+            "end_s": 0.2875,
+            "duration_s": 0.12999999999999998,
+            "type": "ambiguous"
+          },
+          "reference_speech_channel_level_db": [
+            -11.646862833907166,
+            -15.805435961109238
+          ],
+          "region_features": {
+            "frames": 13,
+            "rms_db_median": -31.389479674097558,
+            "periodicity_median": 0.535831045281367,
+            "periodic_frame_fraction": 0.6153846153846154,
+            "zcr_median": 0.03586321934945788,
+            "spectral_flatness_median": 0.0008201695109407676,
+            "low_freq_fraction_<300Hz_median": 0.7733833610475723
+          },
+          "kurtosis_excess": -0.3067853113648553,
+          "crest_factor": 3.372325971453038,
+          "channel_level_db": [
+            -29.075146174716938,
+            -42.93702912077703
+          ],
+          "reference_confident_speech": {
+            "frames": 106,
+            "rms_db_median": -13.350248562140985,
+            "periodicity_median": 0.7806904964140643,
+            "periodic_frame_fraction": 0.8490566037735849,
+            "zcr_median": 0.022935779816513763,
+            "spectral_flatness_median": 2.172751541561698e-05,
+            "low_freq_fraction_<300Hz_median": 0.46213182220032123
+          },
+          "reference_confident_silence": {
+            "frames": 24,
+            "rms_db_median": -41.76844474116929,
+            "periodicity_median": 0.32863657719953304,
+            "periodic_frame_fraction": 0.041666666666666664,
+            "zcr_median": 0.05713094245204337,
+            "spectral_flatness_median": 0.004720231514503847,
+            "low_freq_fraction_<300Hz_median": 0.28356383384080924
+          },
+          "automated_label": "inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated",
+          "decision": "preserved (evidence insufficient to separate speech from noise or breath)",
+          "focus_plot": "outputs/plots/name_ambiguous_region_1.png",
+          "kept_in_processed_output": true
+        },
+        {
+          "region": {
+            "start_s": 1.5275,
+            "end_s": 1.824,
+            "duration_s": 0.2965,
+            "type": "ambiguous"
+          },
+          "reference_speech_channel_level_db": [
+            -11.646862833907166,
+            -15.805435961109238
+          ],
+          "region_features": {
+            "frames": 28,
+            "rms_db_median": -30.729151965741003,
+            "periodicity_median": 0.45387256333982035,
+            "periodic_frame_fraction": 0.42857142857142855,
+            "zcr_median": 0.02585487906588824,
+            "spectral_flatness_median": 0.0008850504569723955,
+            "low_freq_fraction_<300Hz_median": 0.9093545824905143
+          },
+          "kurtosis_excess": 1.500022548972292,
+          "crest_factor": 4.143399722725225,
+          "channel_level_db": [
+            -27.15986936929282,
+            -33.60251473308909
+          ],
+          "reference_confident_speech": {
+            "frames": 106,
+            "rms_db_median": -13.350248562140985,
+            "periodicity_median": 0.7806904964140643,
+            "periodic_frame_fraction": 0.8490566037735849,
+            "zcr_median": 0.022935779816513763,
+            "spectral_flatness_median": 2.172751541561698e-05,
+            "low_freq_fraction_<300Hz_median": 0.46213182220032123
+          },
+          "reference_confident_silence": {
+            "frames": 24,
+            "rms_db_median": -41.76844474116929,
+            "periodicity_median": 0.32863657719953304,
+            "periodic_frame_fraction": 0.041666666666666664,
+            "zcr_median": 0.05713094245204337,
+            "spectral_flatness_median": 0.004720231514503847,
+            "low_freq_fraction_<300Hz_median": 0.28356383384080924
+          },
+          "automated_label": "inconclusive: borderline periodicity (low-frequency noise and weak voicing both give this); speech, breath and background noise cannot be separated",
+          "decision": "preserved (evidence insufficient to separate speech from noise or breath)",
+          "focus_plot": "outputs/plots/name_ambiguous_region_2.png",
+          "kept_in_processed_output": true
+        }
+      ],
+      "periodicity_gate_changed_regions": false,
       "validation": {
         "file": "C:\\Users\\naman\\OneDrive\\Desktop\\assignment\\outputs\\processed_audio\\Naman_Name_processed.wav",
         "checks": {
@@ -728,7 +933,6 @@
           "matches_processed_array_within_1lsb": true,
           "no_clipped_samples": true,
           "peak_not_above_original": true,
-          "joins_without_discontinuity": true,
           "original_file_unchanged": true
         },
         "passed": true,
@@ -739,7 +943,9 @@
           "checked": 0,
           "join_max_step": 0.0,
           "reference_p99_9_step": 0.14824768066406602,
-          "ok": true
+          "ok": true,
+          "joins_created": 0,
+          "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
         },
         "original_sha256": "8b05ffc714673d9eff0b0251cc14f8e6b088ccc11632c9595d798d1c6dc74588"
       },
@@ -751,6 +957,49 @@
         "spectrogram": "outputs/plots/name_spectrogram.png",
         "spectrogram_processed": "outputs/plots/name_spectrogram_processed.png",
         "spectrogram_resolution": "outputs/plots/name_spectrogram_resolution.png"
+      },
+      "recognition_evidence": {
+        "file": "Naman_Name.wav",
+        "declared_utterance": "Naman Gupta",
+        "status": "partially_supported",
+        "note": "1 of 2 engines agree; the others disagreed or returned low-confidence text. Treat as unverified until listened to.",
+        "engines": [
+          {
+            "engine": "faster-whisper (offline, CPU, int8)",
+            "available": true,
+            "model": "models--Systran--faster-distil-whisper-medium.en",
+            "transcript": "Naman Gupta",
+            "avg_logprob": [
+              -0.373
+            ],
+            "no_speech_prob": [
+              0.03
+            ],
+            "note": "Whisper may write spoken letters as 'B-I-T'; comparison ignores punctuation.",
+            "comparison": {
+              "expected_normalised": "namangupta",
+              "heard_normalised": "namangupta",
+              "similarity": 1.0,
+              "consistent_with_expected": true
+            }
+          },
+          {
+            "engine": "Windows System.Speech dictation (offline, en-US)",
+            "available": true,
+            "transcript": "Non little",
+            "confidence": [
+              0.096
+            ],
+            "note": "Desktop dictation engine; weak on isolated short words.",
+            "comparison": {
+              "expected_normalised": "namangupta",
+              "heard_normalised": "nonlittle",
+              "similarity": 0.316,
+              "consistent_with_expected": false
+            }
+          }
+        ],
+        "confidence": "limited: very short recordings, few engines, no ground-truth transcript"
       }
     }
   },
@@ -1366,12 +1615,187 @@
           "ideal_duration_s": 1.8,
           "duration_error_s": 0.4275,
           "speech_preserved_fraction": 1.0,
-          "detected_speech_s": 1.8400000000000003,
-          "detected_ambiguous_s": 0.0
+          "detected_speech_s": 1.5800000000000003,
+          "detected_ambiguous_s": 0.26
         }
       }
     },
     "note": "Synthetic signals with known ground truth; used only to test the algorithms."
+  },
+  "feature_evaluation": {
+    "note": "Synthetic signals only. 'speech' = periodic harmonic bursts or high-passed noise labelled as speech; events = clicks, noise bursts, breath-like noise and a low-frequency thump (labelled NOT speech). Rates are on a 10 ms grid; speech false negative counts frames not accepted as confident speech (they may still be preserved as ambiguous: see active_false_negative_rate).",
+    "scenarios": {
+      "loud_click_train": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.16363636363636364,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.013636363636363636,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        }
+      },
+      "loud_white_noise_burst": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.20909090909090908,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.01818181818181818,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        }
+      },
+      "breath_like_noise_(-26dBFS)": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.25,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.013636363636363636,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        }
+      },
+      "low_frequency_thump_(80Hz)": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.1590909090909091,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.1590909090909091,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        }
+      },
+      "quiet_voiced_speech_(rms_0.004)": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.00909090909090909,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.00909090909090909,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        }
+      },
+      "standalone_unvoiced_sound_(true_speech)": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.025,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.015,
+          "speech_false_negative_rate": 0.13333333333333333,
+          "active_false_negative_rate": 0.0
+        }
+      },
+      "unvoiced_sound_next_to_voiced_(true_speech)": {
+        "energy_only": {
+          "speech_false_positive_rate": 0.01951219512195122,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        },
+        "with_periodicity_gate": {
+          "speech_false_positive_rate": 0.01951219512195122,
+          "speech_false_negative_rate": 0.0,
+          "active_false_negative_rate": 0.0
+        }
+      }
+    },
+    "feature_auc": {
+      "periodicity": 0.9344086687306502,
+      "zcr": 0.18411145510835913,
+      "spectral_flux": 0.049337461300309596,
+      "spectral_flatness": 0.15396904024767802,
+      "low_freq_fraction": 0.808
+    }
+  },
+  "synthetic_join_validation": {
+    "natural_case": {
+      "joins_created": 1,
+      "check": {
+        "checked": 1,
+        "join_max_step": 0.0,
+        "reference_p99_9_step": 0.05763548136333261,
+        "ok": true
+      },
+      "shortened_gaps": [
+        {
+          "start_s": 1.1075,
+          "end_s": 2.2875,
+          "duration_s": 1.18,
+          "neighbours": [
+            "speech",
+            "speech"
+          ],
+          "new_duration_s": 0.2,
+          "removed_s": 0.98
+        }
+      ],
+      "join_samples": [
+        13120
+      ]
+    },
+    "stress_case": {
+      "plain_cut_fade_0ms": {
+        "checked": 1,
+        "join_max_step": 0.8276989402409636,
+        "reference_p99_9_step": 0.04579227809763619,
+        "ok": false,
+        "join_samples": [
+          11200
+        ]
+      },
+      "configured_fade": {
+        "checked": 1,
+        "join_max_step": 0.0,
+        "reference_p99_9_step": 0.045792269751105764,
+        "ok": true,
+        "join_samples": [
+          11200
+        ]
+      }
+    },
+    "interpretation": "Numerical continuity only: the largest sample-to-sample step at a join compared with the 99.9th percentile step of the file. It says nothing about perceptual smoothness.",
+    "plot": "outputs/plots/synthetic_join_check.png"
+  },
+  "real_joins": {
+    "bit": {
+      "checked": 0,
+      "join_max_step": 0.0,
+      "reference_p99_9_step": 0.23263079833984435,
+      "ok": true,
+      "joins_created": 0,
+      "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
+    },
+    "name": {
+      "checked": 0,
+      "join_max_step": 0.0,
+      "reference_p99_9_step": 0.14824768066406602,
+      "ok": true,
+      "joins_created": 0,
+      "applicability": "not applicable: no internal gap was shortened, so no joins exist in this output; join code is exercised on synthetic signals instead"
+    }
+  },
+  "listening_materials": {
+    "clips": [
+      "bit_ambiguous_region_1_0.00-0.91s.wav",
+      "name_ambiguous_region_1_0.00-0.59s.wav",
+      "name_ambiguous_region_2_1.23-1.82s.wav",
+      "synthetic_join_plain_cut.wav",
+      "synthetic_join_with_fade.wav",
+      "synthetic_join_natural.wav"
+    ],
+    "checklist": "outputs/listening_checklist.md",
+    "listening_performed": false
   },
   "manual_review": {
     "basis": "visual inspection of the boundary-review plots (waveform, frame RMS, spectrogram) by the analyst; no listening test, so these are observations, not ground truth",
@@ -1413,6 +1837,104 @@
         "judgement": "Probably breath, handling or room noise, but unresolved. Preserved; it is the main remaining uncertainty."
       }
     ]
+  },
+  "manual_listening": null,
+  "content_verification": {
+    "basis": "Recognition output is supporting evidence only, not ground truth. Audio stays on this machine.",
+    "manual_procedure": [
+      "Play the original file (not the processed one) with headphones.",
+      "Write down exactly what you hear, once, without looking at the expected phrase.",
+      "Compare with the declared utterance in audio/manifest.json and record the result in manual_listening.json.",
+      "A second listener makes the check more reliable."
+    ],
+    "recordings": {
+      "bit": {
+        "file": "Naman_BIT.wav",
+        "declared_utterance": "BIT",
+        "status": "partially_supported",
+        "note": "1 of 2 engines agree; the others disagreed or returned low-confidence text. Treat as unverified until listened to.",
+        "engines": [
+          {
+            "engine": "faster-whisper (offline, CPU, int8)",
+            "available": true,
+            "model": "models--Systran--faster-distil-whisper-medium.en",
+            "transcript": "BIT",
+            "avg_logprob": [
+              -0.709
+            ],
+            "no_speech_prob": [
+              0.028
+            ],
+            "note": "Whisper may write spoken letters as 'B-I-T'; comparison ignores punctuation.",
+            "comparison": {
+              "expected_normalised": "bit",
+              "heard_normalised": "bit",
+              "similarity": 1.0,
+              "consistent_with_expected": true
+            }
+          },
+          {
+            "engine": "Windows System.Speech dictation (offline, en-US)",
+            "available": true,
+            "transcript": "The FBI B",
+            "confidence": [
+              0.023
+            ],
+            "note": "Desktop dictation engine; weak on isolated short words.",
+            "comparison": {
+              "expected_normalised": "bit",
+              "heard_normalised": "thefbib",
+              "similarity": 0.4,
+              "consistent_with_expected": false
+            }
+          }
+        ],
+        "confidence": "limited: very short recordings, few engines, no ground-truth transcript"
+      },
+      "name": {
+        "file": "Naman_Name.wav",
+        "declared_utterance": "Naman Gupta",
+        "status": "partially_supported",
+        "note": "1 of 2 engines agree; the others disagreed or returned low-confidence text. Treat as unverified until listened to.",
+        "engines": [
+          {
+            "engine": "faster-whisper (offline, CPU, int8)",
+            "available": true,
+            "model": "models--Systran--faster-distil-whisper-medium.en",
+            "transcript": "Naman Gupta",
+            "avg_logprob": [
+              -0.373
+            ],
+            "no_speech_prob": [
+              0.03
+            ],
+            "note": "Whisper may write spoken letters as 'B-I-T'; comparison ignores punctuation.",
+            "comparison": {
+              "expected_normalised": "namangupta",
+              "heard_normalised": "namangupta",
+              "similarity": 1.0,
+              "consistent_with_expected": true
+            }
+          },
+          {
+            "engine": "Windows System.Speech dictation (offline, en-US)",
+            "available": true,
+            "transcript": "Non little",
+            "confidence": [
+              0.096
+            ],
+            "note": "Desktop dictation engine; weak on isolated short words.",
+            "comparison": {
+              "expected_normalised": "namangupta",
+              "heard_normalised": "nonlittle",
+              "similarity": 0.316,
+              "consistent_with_expected": false
+            }
+          }
+        ],
+        "confidence": "limited: very short recordings, few engines, no ground-truth transcript"
+      }
+    }
   },
   "frozen_baseline_file": "baseline_results.json"
 }

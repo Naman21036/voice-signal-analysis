@@ -3,3 +3,4 @@ scipy
 soundfile
 matplotlib
 pytest
+# optional (verify_content.py only): faster-whisper, plus a locally cached Whisper model; Windows System.Speech needs no install

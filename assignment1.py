@@ -66,6 +66,13 @@ class Config:
     max_extension_ms: float = 150.0  # confident speech extends at most this far beyond its high-threshold core
                                      # (soft onsets/decays); further low-level activity is 'ambiguous'
     trim_ambiguous: bool = False     # False (default): ambiguous regions are preserved; True: treated as removable
+    # --- optional periodicity gate (loud non-periodic activity -> 'ambiguous' instead of 'speech')
+    use_periodicity_gate: bool = True
+    periodicity_frame_ms: float = 40.0   # window for the autocorrelation (needs >= 2 periods of the lowest pitch)
+    pitch_min_hz: float = 70.0
+    pitch_max_hz: float = 400.0
+    min_periodicity: float = 0.5         # normalised autocorrelation peak above which a frame counts as periodic
+    min_periodic_ms: float = 30.0        # periodic time needed inside a high-energy core
     # --- trimming
     edge_pad_ms: float = 100.0       # context kept before the first / after the last active region
     max_internal_gap_ms: float = 400.0  # confident-silence gaps between two speech regions longer than this are shortened
@@ -164,6 +171,69 @@ def frame_rms_db(x: np.ndarray, frame: int, hop: int) -> np.ndarray:
     seg = x[idx]  # (n_frames, frame) or (n_frames, frame, channels)
     power = np.mean(seg ** 2, axis=tuple(range(1, seg.ndim)))
     return 10 * np.log10(power + EPS)
+
+
+def frame_periodicity(x: np.ndarray, fs: int, cfg: Config, n_frames: int | None = None) -> np.ndarray:
+    """Per-frame periodicity (0..1): peak of the window-corrected normalised autocorrelation in the pitch lag range.
+
+    Frames are aligned with frame_rms_db (same centres and hop). Channels are analysed separately and the
+    maximum is kept. Voiced speech scores high; clicks and broadband noise score low. It is NOT a speech detector:
+    any strongly periodic sound (e.g. a low hum or thump) also scores high.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    if x.ndim == 1:
+        x = x[:, None]
+    frame, hop = _frame_params(fs, cfg)
+    n = x.shape[0]
+    n_frames = n_frames if n_frames is not None else (0 if n == 0 else 1 + max(0, n - frame) // hop)
+    if n_frames == 0:
+        return np.array([])
+    length = max(8, int(round(cfg.periodicity_frame_ms * fs / 1000)))
+    lag_lo = max(1, int(fs / cfg.pitch_max_hz))
+    lag_hi = min(length - 1, int(fs / cfg.pitch_min_hz))
+    if lag_hi <= lag_lo:
+        return np.zeros(n_frames)
+    win = np.hanning(length)
+    nfft = 1 << (2 * length - 1).bit_length()
+    wac = np.fft.irfft(np.abs(np.fft.rfft(win, nfft)) ** 2)
+    wnorm = wac[lag_lo:lag_hi + 1] / wac[0]
+    pad = length // 2
+    out = np.zeros(n_frames)
+    for c in range(x.shape[1]):
+        xp = np.pad(x[:, c], (pad, pad + length))
+        starts = np.arange(n_frames) * hop + frame // 2
+        idx = starts[:, None] + np.arange(length)[None, :]
+        seg = xp[idx]
+        seg = (seg - seg.mean(axis=1, keepdims=True)) * win
+        spec = np.fft.rfft(seg, nfft, axis=1)
+        ac = np.fft.irfft(np.abs(spec) ** 2, axis=1)
+        e0 = ac[:, 0] + EPS
+        pe = ac[:, lag_lo:lag_hi + 1] / e0[:, None] / wnorm[None, :]
+        out = np.maximum(out, np.clip(pe.max(axis=1), 0, 1))
+    return out
+
+
+def frame_features(x: np.ndarray, fs: int, cfg: Config) -> dict[str, np.ndarray]:
+    """Frame-aligned features used to compare candidate speech/non-speech evidence."""
+    x = np.asarray(x, dtype=np.float64)
+    mono = to_mono(x)
+    frame, hop = _frame_params(fs, cfg)
+    if mono.shape[0] < frame:
+        mono = np.pad(mono, (0, frame - mono.shape[0]))
+    nf = 1 + (mono.shape[0] - frame) // hop
+    idx = np.arange(frame)[None, :] + hop * np.arange(nf)[:, None]
+    seg = mono[idx]
+    zcr = np.mean(np.abs(np.diff(np.sign(seg), axis=1)) > 0, axis=1)
+    mag = np.abs(np.fft.rfft(seg * np.hanning(frame), axis=1))
+    norm = mag / (mag.sum(axis=1, keepdims=True) + EPS)
+    flux = np.concatenate([[0.0], np.sqrt(np.sum(np.diff(norm, axis=0) ** 2, axis=1))])
+    power = mag ** 2 + EPS
+    flatness = np.exp(np.mean(np.log(power), axis=1)) / np.mean(power, axis=1)
+    freqs = np.fft.rfftfreq(frame, 1 / fs)
+    low_frac = power[:, freqs < 300].sum(axis=1) / power.sum(axis=1)
+    return {"rms_db": frame_rms_db(x, frame, hop), "periodicity": frame_periodicity(x, fs, cfg, nf), "zcr": zcr,
+            "spectral_flux": flux, "spectral_flatness": flatness, "low_freq_fraction": low_frac}
+
 
 
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
@@ -292,12 +362,22 @@ def detect_silence(x: np.ndarray, fs: int, cfg: Config) -> dict:
         if e - s < min_sil and s > 0 and e < n:
             active[s:e] = True
     ext = max(0, int(round(cfg.max_extension_ms / cfg.hop_ms)))
+    periodic = None
+    if cfg.use_periodicity_gate:
+        periodic = frame_periodicity(x, fs, cfg, n) >= cfg.min_periodicity
+        result["min_periodic_ms"] = cfg.min_periodic_ms
+    min_per = max(1, int(round(cfg.min_periodic_ms / cfg.hop_ms)))
+    n_nonperiodic = 0
     runs = []
     for s, e in _runs(active):
         if e - s < min_sp:                 # transient
             active[s:e] = False
             continue
         cores = [(a, b) for a, b in _runs(db[s:e] > high) if b - a >= min_core]
+        if periodic is not None and cores:
+            kept = [(a, b) for a, b in cores if int(periodic[s + a:s + b].sum()) >= min_per]
+            n_nonperiodic += len(cores) - len(kept)
+            cores = kept
         if not cores:
             runs.append((s, e, "ambiguous"))
             continue
@@ -331,6 +411,9 @@ def detect_silence(x: np.ndarray, fs: int, cfg: Config) -> dict:
             kind = "entire recording"
         result["silence"].append(_region(t0, t1, kind))
     flags = result["flags"]
+    if n_nonperiodic:
+        flags.append(f"{n_nonperiodic} high-energy cluster(s) lacked periodic (voiced) frames and were not accepted as "
+                     "confident speech (could be clicks, noise bursts or unvoiced sounds)")
     if result["ambiguous"]:
         flags.append(f"{len(result['ambiguous'])} ambiguous low-level region(s) kept: level is above the noise floor but "
                      "never reaches the speech-onset threshold")
@@ -663,6 +746,9 @@ def process_recording(key: str, entry: dict, out: Path, cfg: Config) -> dict:
     det = detect_silence(data, fs, cfg)
     proc, trim_info = trim_silence(data, fs, det, cfg)
 
+    ungated = detect_silence(data, fs, replace(cfg, use_periodicity_gate=False))
+    sig = lambda d_: [(r["type"], round(r["start_s"], 6), round(r["end_s"], 6)) for r in d_["silence"] + d_["speech"] + d_["ambiguous"]]  # noqa: E731
+    gate_changes_regions = sorted(sig(ungated)) != sorted(sig(det))
     base_det = detect_silence_baseline(data, fs, cfg)
     base_proc, _ = trim_silence(data, fs, base_det, cfg)
 
@@ -688,13 +774,21 @@ def process_recording(key: str, entry: dict, out: Path, cfg: Config) -> dict:
 
     validation = validate_wav(proc_path, fs, data.shape[1], proc, stats["peak_amplitude"])
     validation["joins"] = check_joins(proc, trim_info["join_samples"])
-    validation["checks"]["joins_without_discontinuity"] = validation["joins"]["ok"]
+    validation["joins"]["joins_created"] = len(trim_info["join_samples"])
+    if trim_info["join_samples"]:
+        validation["checks"]["joins_without_discontinuity"] = validation["joins"]["ok"]
+        validation["joins"]["applicability"] = "joins created; numerical continuity checked"
+    else:
+        validation["joins"]["applicability"] = ("not applicable: no internal gap was shortened, so no joins exist in this "
+                                                "output; join code is exercised on synthetic signals instead")
     sha_after = sha256_of(path)
     validation["checks"]["original_file_unchanged"] = sha_before == sha_after
     validation["passed"] = all(validation["checks"].values())
     validation["original_sha256"] = sha_after
 
     rel = lambda p: p.relative_to(out.parent).as_posix()  # noqa: E731
+    from regions import analyse_ambiguous_regions
+    region_analysis = analyse_ambiguous_regions(key, data, proc, fs, det, trim_info, out, cfg, ref)
     return {"declared_utterance": phrase, "identity_source": entry["identity_source"],
             "content_verification": "Declared utterance only. No speech recognition was run, so the spoken content "
                                     "is NOT independently verified.",
@@ -704,7 +798,8 @@ def process_recording(key: str, entry: dict, out: Path, cfg: Config) -> dict:
             "processed_stats": signal_stats(proc), "processed_file": rel(proc_path),
             "baseline": {"silence_detection": summarise_detection(base_det),
                          "reduction": duration_reduction(data.shape[0], base_proc.shape[0], fs)},
-            "sensitivity": sensitivity_sweep(data, fs, cfg),
+            "sensitivity": sensitivity_sweep(data, fs, cfg), "region_analysis": region_analysis,
+            "periodicity_gate_changed_regions": gate_changes_regions,
             "validation": validation, "plots": {k: rel(v) for k, v in paths.items()}}
 
 
@@ -727,8 +822,31 @@ def run(audio_dir: Path, out: Path, cfg: Config) -> dict:
               f"valid={r['validation']['passed']}")
     print("[synthetic] running controlled evaluation")
     results["synthetic_evaluation"] = run_synthetic_evaluation(cfg)
-    review = ROOT / "manual_review.json"
-    results["manual_review"] = json.loads(review.read_text(encoding="utf-8")) if review.is_file() else None
+    print("[synthetic] feature evaluation and join validation")
+    from evaluation_events import join_validation, run_feature_evaluation
+    from regions import plot_join_check, write_listening_materials
+    results["feature_evaluation"] = run_feature_evaluation(cfg)
+    join_result, join_audio = join_validation(cfg)
+    plot_join_check(join_audio, 16000, out / "plots" / "synthetic_join_check.png")
+    join_result["plot"] = "outputs/plots/synthetic_join_check.png"
+    results["synthetic_join_validation"] = join_result
+    results["real_joins"] = {k: r["validation"]["joins"] for k, r in results["recordings"].items()}
+    results["listening_materials"] = write_listening_materials(found, results, out, join_audio, 16000)
+    # optional inputs: authored/observed evidence kept outside the generated outputs
+    def _load(p: Path):
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else None
+    repo_audio = audio_dir.resolve() == (ROOT / "audio").resolve()  # authored notes only apply to the repository's recordings
+    results["manual_review"] = _load(ROOT / "manual_review.json") if repo_audio else None
+    results["manual_listening"] = _load(ROOT / "manual_listening.json") if repo_audio else None
+    verification = _load(out / "content_verification.json")
+    results["content_verification"] = verification
+    if verification:
+        for k, r in results["recordings"].items():
+            v = verification["recordings"].get(k)
+            if v:
+                r["content_verification"] = (f"Recognition evidence (supporting, not ground truth): status {v['status']}. "
+                                             "Spoken content is NOT independently verified by listening.")
+                r["recognition_evidence"] = v
     frozen = out / "baseline_results.json"
     results["frozen_baseline_file"] = frozen.name if frozen.is_file() else None
     (out / "analysis_results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")

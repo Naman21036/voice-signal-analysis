@@ -1,0 +1,97 @@
+{
+  "basis": "Recognition output is supporting evidence only, not ground truth. Audio stays on this machine.",
+  "manual_procedure": [
+    "Play the original file (not the processed one) with headphones.",
+    "Write down exactly what you hear, once, without looking at the expected phrase.",
+    "Compare with the declared utterance in audio/manifest.json and record the result in manual_listening.json.",
+    "A second listener makes the check more reliable."
+  ],
+  "recordings": {
+    "bit": {
+      "file": "Naman_BIT.wav",
+      "declared_utterance": "BIT",
+      "status": "partially_supported",
+      "note": "1 of 2 engines agree; the others disagreed or returned low-confidence text. Treat as unverified until listened to.",
+      "engines": [
+        {
+          "engine": "faster-whisper (offline, CPU, int8)",
+          "available": true,
+          "model": "models--Systran--faster-distil-whisper-medium.en",
+          "transcript": "BIT",
+          "avg_logprob": [
+            -0.709
+          ],
+          "no_speech_prob": [
+            0.028
+          ],
+          "note": "Whisper may write spoken letters as 'B-I-T'; comparison ignores punctuation.",
+          "comparison": {
+            "expected_normalised": "bit",
+            "heard_normalised": "bit",
+            "similarity": 1.0,
+            "consistent_with_expected": true
+          }
+        },
+        {
+          "engine": "Windows System.Speech dictation (offline, en-US)",
+          "available": true,
+          "transcript": "The FBI B",
+          "confidence": [
+            0.023
+          ],
+          "note": "Desktop dictation engine; weak on isolated short words.",
+          "comparison": {
+            "expected_normalised": "bit",
+            "heard_normalised": "thefbib",
+            "similarity": 0.4,
+            "consistent_with_expected": false
+          }
+        }
+      ],
+      "confidence": "limited: very short recordings, few engines, no ground-truth transcript"
+    },
+    "name": {
+      "file": "Naman_Name.wav",
+      "declared_utterance": "Naman Gupta",
+      "status": "partially_supported",
+      "note": "1 of 2 engines agree; the others disagreed or returned low-confidence text. Treat as unverified until listened to.",
+      "engines": [
+        {
+          "engine": "faster-whisper (offline, CPU, int8)",
+          "available": true,
+          "model": "models--Systran--faster-distil-whisper-medium.en",
+          "transcript": "Naman Gupta",
+          "avg_logprob": [
+            -0.373
+          ],
+          "no_speech_prob": [
+            0.03
+          ],
+          "note": "Whisper may write spoken letters as 'B-I-T'; comparison ignores punctuation.",
+          "comparison": {
+            "expected_normalised": "namangupta",
+            "heard_normalised": "namangupta",
+            "similarity": 1.0,
+            "consistent_with_expected": true
+          }
+        },
+        {
+          "engine": "Windows System.Speech dictation (offline, en-US)",
+          "available": true,
+          "transcript": "Non little",
+          "confidence": [
+            0.096
+          ],
+          "note": "Desktop dictation engine; weak on isolated short words.",
+          "comparison": {
+            "expected_normalised": "namangupta",
+            "heard_normalised": "nonlittle",
+            "similarity": 0.316,
+            "consistent_with_expected": false
+          }
+        }
+      ],
+      "confidence": "limited: very short recordings, few engines, no ground-truth transcript"
+    }
+  }
+}
