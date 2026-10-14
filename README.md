@@ -2,6 +2,10 @@
 
 **EC24313 – Artificial Intelligence and Machine Learning · Assignment 1**
 
+**Made by:** Naman Gupta  
+**Roll No:** BTECH/10887/24  
+**Section:** C, ECE
+
 A reproducible Python pipeline that analyses two short speech recordings ("BIT" and "Naman Gupta"): it extracts metadata, plots time-domain waveforms, detects and classifies silent regions, trims silence, and generates STFT spectrograms. Every figure, processed WAV file, measurement and report is produced by a single command.
 
 This is an educational signal-processing project. It is not a speech-recognition or speaker-identification system.
