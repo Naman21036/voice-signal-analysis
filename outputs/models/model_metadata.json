@@ -1,0 +1,60 @@
+{
+  "best_model_name": "Support Vector Machine",
+  "feature_names": [
+    "MFCC_1",
+    "MFCC_2",
+    "MFCC_3",
+    "MFCC_4",
+    "MFCC_5",
+    "MFCC_6",
+    "MFCC_7",
+    "MFCC_8",
+    "MFCC_9",
+    "MFCC_10",
+    "MFCC_11",
+    "MFCC_12",
+    "MFCC_13"
+  ],
+  "n_features": 13,
+  "target_sample_rate": 16000,
+  "mfcc_config": {
+    "n_mfcc": 13,
+    "n_mels": 26,
+    "n_fft": 512,
+    "win_length": 400,
+    "hop_length": 160,
+    "window": "hann",
+    "pre_emphasis": 0.97
+  },
+  "class_mapping": {
+    "0": "Boys",
+    "1": "Girls"
+  },
+  "metrics": {
+    "model_name": "Support Vector Machine",
+    "tp": 16,
+    "tn": 2,
+    "fp": 3,
+    "fn": 0,
+    "accuracy": 0.8571428571428571,
+    "sensitivity": 1.0,
+    "precision": 0.8421052631578947,
+    "specificity": 0.4,
+    "f1_score": 0.9142857142857143,
+    "girls_precision": 1.0,
+    "girls_recall": 0.4,
+    "girls_f1": 0.5714285714285715,
+    "macro_f1": 0.7428571428571429,
+    "roc_auc": 1.0,
+    "confusion_matrix": [
+      [
+        16,
+        0
+      ],
+      [
+        3,
+        2
+      ]
+    ]
+  }
+}

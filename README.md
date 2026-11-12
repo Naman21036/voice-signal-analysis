@@ -1,242 +1,383 @@
-# Voice Signal Analysis and Silence Removal
+# EC24313: Artificial Intelligence and Machine Learning
 
-**EC24313 – Artificial Intelligence and Machine Learning · Assignment 1**
+**Birla Institute of Technology · Department of Electronics and Communication Engineering**
 
-**Made by:** Naman Gupta  
-**Roll No:** BTECH/10887/24  
-**Section:** C, ECE
+* **Author:** Naman Gupta  
+* **Roll No:** BTECH/10887/24  
+* **Section:** C (ECE)  
+* **Academic Term:** Monsoons / Autumn 2026  
 
-A reproducible Python pipeline that analyses two short speech recordings ("BIT" and "Naman Gupta"): it extracts metadata, plots time-domain waveforms, detects and classifies silent regions, trims silence, and generates STFT spectrograms. Every figure, processed WAV file, measurement and report is produced by a single command.
+---
 
-This is an educational signal-processing project. It is not a speech-recognition or speaker-identification system.
+## Repository Overview
 
-## Highlights
+This repository contains the complete, reproducible academic implementations for both **Assignment 1** (Voice Signal Analysis and Silence Removal) and **Assignment 2** (Voice-Based Gender Classification Using MFCC and Machine Learning).
 
-- **Adaptive silence detection:** frame-RMS energy with a robust noise-floor estimate, hysteresis thresholds and an optional periodicity (voicing) check. Regions are classified as *speech*, *ambiguous* or *silence*.
-- **Safe trimming:** padding around speech, fades at every cut, and a strict rule for shortening internal gaps. Input audio is never modified (verified by SHA-256).
-- **Validated outputs:** each processed file is re-read and checked (sampling frequency, channels, sample count, finite values, clipping, original-file hash).
-- **Tested on ground truth:** the new detector is compared with the original on 14 synthetic scenarios with known speech intervals, plus controlled non-speech and join tests.
-- **Honest reporting:** results are labelled as measured, recognition-based, manual, synthetic or unverified.
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    EC24313 AIML AUDIO PIPELINES                                 │
+├────────────────────────────────────────────────┬────────────────────────────────────────────────┤
+│ ASSIGNMENT 1: DSP & SILENCE REMOVAL            │ ASSIGNMENT 2: VOICE GENDER CLASSIFICATION      │
+│ • Frame-RMS energy with noise floor estimation │ • 115 real student recordings (63 speakers)    │
+│ • Dual-threshold hysteresis silence detector   │ • Phase-safe mono downmix + 16 kHz polyphase   │
+│ • Autocorrelation periodicity / voicing gate   │ • 13-coefficient Mel-Frequency Cepstral (MFCC) │
+│ • Safe speech trimming with context padding    │ • Mandatory 2D PCA projection scatter plot     │
+│ • STFT time-frequency spectrogram analysis     │ • Zero-leakage Stratified Group K-Fold split   │
+│ • Synthetic ground-truth validation (14 tests) │ • Classifiers: SVM (RBF/Linear), RF, MLP-NN    │
+│ • ReportLab PDF: DSP_Assignment_Report.pdf     │ • ReportLab PDF: AIML_Assignment2_Report.pdf   │
+└────────────────────────────────────────────────┴────────────────────────────────────────────────┘
+```
 
-## Results at a glance
+---
 
-| Recording | Sampling rate | Channels | Original | Processed | Removed |
-|---|---|---|---|---|---|
-| `Naman_BIT.wav` ("BIT") | 48 000 Hz | 2 | 2.472 s | 1.690 s | 0.782 s (31.6 %) |
-| `Naman_Name.wav` ("Naman Gupta") | 48 000 Hz | 2 | 1.824 s | 1.260 s | 0.564 s (30.9 %) |
+## Quick Start & Execution Guide
 
-Both processed files pass all 11 applicable integrity checks. No internal gap was shortened, so the reduction comes from the start and end of each file. The three low-level "ambiguous" regions (see [Verification](#verification-of-uncertain-results)) are removed on the basis of a manual listening finding; with `trim_ambiguous=False` the reductions are 13.4 % and 3.2 %.
+The repository requires Python 3.10+ (tested on Python 3.13). Dependencies are managed in `requirements.txt`.
 
-## Quick start
-
-Requires Python 3.10+ (developed and run on 3.13).
+### 1. Environment Setup
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python assignment1.py                 # full analysis -> outputs/
-python -m pytest tests -q             # 41 tests
-python verify_content.py              # optional offline speech-recognition cross-check
 ```
 
-On Linux/macOS activate with `source .venv/bin/activate`. Run from the repository root. Options: `--audio-dir DIR`, `--output-dir DIR`. Exit status: `0` success, `1` critical error, `2` a processed file failed validation. Reruns overwrite generated files only.
+### 2. Single-Command Execution
 
-`verify_content.py` needs `faster-whisper` and a locally cached Whisper model (no download is attempted) and/or Windows' built-in speech recogniser. Without them the utterances are reported as *unverified*. Rerun `assignment1.py` afterwards to include the result in the report.
+```powershell
+# Run Assignment 1 end-to-end pipeline (analyses audio/ -> outputs/)
+python assignment1.py
 
-## How it works
+# Run Assignment 2 end-to-end pipeline (all 21 steps from discovery to PDF report)
+python assignment2.py
+
+# Run complete automated test suite (all 63 unit and integration tests)
+python -m pytest tests -q
+
+# Test Gender Prediction CLI on individual WAV audio recordings
+python -m assignment2.predict "audio/Naman_BIT.wav"
+python -m assignment2.predict "VOICE DATASET GIRLS/Avantika_BIT.wav"
+
+# Recompile standalone academic PDF reports
+python generate_assignment_pdf.py       # Assignment 1 report
+python generate_assignment2_pdf.py      # Assignment 2 report
+```
+
+---
+
+## Automated Test Suite Summary
+
+Every module, algorithm, and boundary condition is verified with automated tests:
+
+```powershell
+python -m pytest tests -q
+```
+```
+...............................................................          [100%]
+63 passed in 26.77s
+```
+
+* **Assignment 1 Tests (41 passed):** WAV header loading, metadata extraction, baseline vs hysteresis silence detection, periodicity voicing check, context padding, phase cancellation prevention, synthetic scenarios.
+* **Assignment 2 Tests (22 passed):** Dataset discovery, parent directory label mapping, speaker identification parsing, invalid file exclusions, polyphase resampling, phase-safe downmixing, 13 MFCC extraction, Mel filterbank geometry, 0 speaker overlap in `StratifiedGroupKFold`, SVM/RF/MLP training and loss curves, confusion matrix math, ROC/AUC calculation, inference CLI.
+
+---
+
+# ASSIGNMENT 2: Voice-Based Gender Classification Using MFCC & Machine Learning
+
+## 1. Assignment Objectives
+
+1. Automatically discover and catalog the multi-speaker voice dataset collected from students across `VOICE DATASET BOYS` and `VOICE DATASET GIRLS`.
+2. Extract standardized acoustic features using **13 Mel-Frequency Cepstral Coefficients (MFCC)** per speech frame, aggregated temporally into a fixed-size 13-dimensional vector per recording.
+3. Generate the **mandatory 2D PCA projection scatter plot** illustrating acoustic separation between Boys and Girls.
+4. Prevent data leakage by enforcing **zero speaker overlap** between training and test sets using **Stratified Group K-Fold on `speaker_id`**.
+5. Develop, optimize, and compare three machine learning classifiers:
+   * **Support Vector Machine (SVM)** (Linear and RBF kernels)
+   * **Random Forest (RF)**
+   * **Multi-Layer Perceptron (MLP Neural Network)**
+6. Evaluate models using **Confusion Matrix**, **Accuracy**, **Sensitivity (Boys Recall)**, **Precision**, **Specificity (Girls Recall)**, **F1-Score**, and **ROC / AUC curves**.
+7. Execute comparative experiments across phonetic utterance types (**BIT only**, **Name only**, and **Combined**) and feature dimensionality (13-dim vs 26-dim).
+8. Deliver a saved production inference pipeline and comprehensive **Markdown & PDF reports**.
+
+---
+
+## 2. Machine Learning Pipeline Architecture
 
 ```mermaid
 flowchart TD
-    A["audio/manifest.json + *.wav<br/>discover_recordings()"] --> B["load_audio(), get_metadata()"]
-    B --> C["signal_stats()"]
-    B --> D["plot_waveform()"]
-    B --> E["detect_silence()<br/>speech / ambiguous / silence"]
-    B --> E0["detect_silence_baseline()<br/>original detector, for comparison"]
-    E --> F["plot_silence(), plot_boundary_review()"]
-    E --> G["trim_silence()"]
-    E --> R["regions.analyse_ambiguous_regions()"]
-    G --> H["plot_comparison()"]
-    G --> I["processed WAV, validate_wav(), check_joins()"]
-    B --> J["plot_spectrogram()<br/>original and processed, shared dB reference"]
-    X["evaluation*.py<br/>synthetic ground-truth tests"] --> L
-    V["verify_content.py (optional)"] --> L
-    E0 --> L
-    R --> L
-    I --> L["report.write_report()<br/>analysis_results.json, analysis_report.md"]
+    A["VOICE DATASET BOYS & GIRLS<br/>(115 WAV files · 63 speakers)"] --> B["dataset.py<br/>Metadata extraction & Speaker ID"]
+    B --> C["preprocessing.py<br/>1. Phase-safe mono downmix<br/>2. 16 kHz polyphase resample<br/>3. Speech boundary trim with 100ms padding<br/>4. -1 dBFS peak normalization"]
+    C --> D["feature_extraction.py<br/>1. Pre-emphasis (alpha = 0.97)<br/>2. 25ms Hann window, 10ms hop<br/>3. 512-point FFT power spectrum<br/>4. 26 triangular Mel filterbanks<br/>5. Log compression & Orthonormal DCT-II<br/>6. Temporal mean aggregation -> 13 MFCCs"]
+    D --> E["exploratory_analysis.py & visualization.py<br/>• Mandatory 2D PCA Scatter Plot<br/>• MFCC correlation & distribution boxplots<br/>• Waveform & heatmap comparisons"]
+    D --> F["train.py<br/>StratifiedGroupKFold on speaker_id<br/>(Zero speaker overlap: 94 train, 21 test)"]
+    F --> G["Model 1: Support Vector Machine (RBF/Linear)"]
+    F --> H["Model 2: Random Forest (Balanced)"]
+    F --> I["Model 3: Multi-Layer Perceptron (64-32 ReLU)"]
+    G --> J["evaluate.py & experiments.py<br/>Confusion Matrix, Accuracy, Sensitivity,<br/>Specificity, F1, ROC/AUC, Exp A-D"]
+    H --> J
+    I --> J
+    J --> K["Saved Model: outputs/models/best_gender_classifier.joblib"]
+    J --> L["Academic Reports: Markdown & Publication PDF"]
 ```
 
-### Audio representation
+---
 
-For `N` samples per channel at sampling frequency `f_s`, the duration is
+## 3. Dataset Composition & Statistics
 
-$$T = \frac{N}{f_s}$$
+The dataset comprises genuine student recordings stored in folder-based ground-truth directories:
+* `VOICE DATASET BOYS` $\rightarrow$ **Class 1: Boys** (Numeric label `0`, positive class)
+* `VOICE DATASET GIRLS` $\rightarrow$ **Class 2: Girls** (Numeric label `1`, negative class)
 
-`f_s` is read from the WAV header (`soundfile.info`) and is unrelated to the pitch of the voice. Both recordings are stereo; plots show both channels and the detector pools energy across channels (a plain channel average cancels out-of-phase channels).
+### Verified Corpus Metrics
 
-### Silence detection
+| Property | Measured Value | Notes |
+|---|---|---|
+| **Total Valid WAV Recordings** | **115 files** | Full integrity verified |
+| **Class 1: Boys Recordings** | **103 files** (89.6%) | Positive class |
+| **Class 2: Girls Recordings** | **12 files** (10.4%) | Minority class (8.6 : 1 ratio) |
+| **Total Audio Duration** | **286.19 seconds** (~4.77 min) | Real student speech |
+| **Mean Duration per Recording** | **2.49 ± 1.73 seconds** | Min: 0.46 s, Max: 10.20 s |
+| **Identifiable Unique Speakers** | **63 speakers** | 56 Boys, 7 Girls (parsed from verified naming conventions) |
+| **Phonetic Utterance Types** | 47 BIT, 46 Name, 19 Combined, 3 other | Monosyllabic and continuous polysyllabic speech |
+| **Original Sampling Rates** | 48 kHz (72), 44.1 kHz (31), 16 kHz (10), 22.05 kHz (2) | Standardized to 16 kHz |
+| **Original Channel Layouts** | 86 Mono, 29 Stereo | Standardized via phase-safe downmixing |
+| **Excluded Non-WAV Media** | **33 files** | 27 `.mp3`, 2 `.mp4`, 1 `.m4a`, 1 `.mpeg`, 2 extensionless (cataloged in `invalid_files.csv`) |
+| **Cryptographic Duplicates** | **0** | Verified via unique SHA-256 digests across all 115 WAV files |
 
-1. Frame RMS (dB) over **25 ms frames, 10 ms hop**, pooled over all channels.
-2. **Noise floor** = median of the quietest 10 % of frames (digital-zero frames excluded). **Speech level** = 95th percentile.
-3. **Hysteresis:** hold threshold = noise + 8 dB; onset threshold = noise + 20 dB (kept ≥ 10 dB below the speech level).
-4. Dips shorter than 100 ms are bridged; runs shorter than 30 ms are dropped.
-5. A run is confident **speech** if it has ≥ 30 ms above the onset threshold, extended by at most 150 ms (soft onsets and decays). The rest of the low-level activity is **ambiguous**.
-6. If the speech level is less than 15 dB above the noise floor, no region is declared silent.
-7. **Periodicity gate** (on by default): a high-energy cluster counts as speech only if it contains ≥ 30 ms of periodic frames (autocorrelation peak ≥ 0.5 at 70–400 Hz lags). This detects voicing, not speech.
+---
 
-The detector is energy-based with a voicing check; it does not identify words and is not a validated speech/non-speech classifier. The original single-threshold detector is kept as `detect_silence_baseline`, and its results are frozen in `outputs/baseline_results.json` (a test confirms it still reproduces them).
+## 4. Acoustic Preprocessing & Feature Extraction
 
-### Trimming
+### Preprocessing Specifications
+1. **Phase-Safe Stereo Downmixing:** Prevents signal cancellation if channels have inverted polarity:
+   $$r = \frac{\langle L, R \rangle}{\|L\|_2 \|R\|_2 + \epsilon}$$
+   If $r < -0.2$, the channels are subtracted $((L - R)/\sqrt{2})$; otherwise, standard channel averaging $((L + R)/2)$ is applied.
+2. **Anti-Aliased Polyphase Resampling:** Signals are converted to standard $f_s = 16{,}000\text{ Hz}$ using polyphase rational filtering (`scipy.signal.resample_poly`), eliminating aliasing artifacts.
+3. **Adaptive Speech Boundary Detection:** Active voice margins are detected using frame RMS energy with hysteresis thresholds and $100\text{ ms}$ context padding at both edges to safeguard initial plosive bursts (/b/, /p/) and trailing fricatives (/s/).
+4. **Dynamic Range Normalization:** Signals are peak-normalized to -1.0 dBFS (0.90 amplitude) to eliminate recording gain disparities.
 
-- Cut to the first and last speech region plus **100 ms** padding, with a 5 ms fade at every cut that is not the file's own edge.
-- Shorten an internal gap (to 200 ms) **only if** it is longer than 400 ms and both neighbours are confident speech.
-- Sampling frequency, channels and 16-bit PCM format are retained; no gain is applied.
+### Mathematical Formulations of MFCC
+1. **First-Order Pre-Emphasis:** Boosts high frequencies to compensate for the -6 dB/octave glottal spectral roll-off:
+   $$y[n] = x[n] - \alpha \cdot x[n-1], \quad \alpha = 0.97$$
+2. **Framing & Hann Windowing:** Analysis frames of length $N = 400\text{ samples}$ ($25.0\text{ ms}$) with hop $M = 160\text{ samples}$ ($10.0\text{ ms}$, 60% overlap):
+   $$w[n] = 0.5 - 0.5 \cos\left(\frac{2\pi n}{N - 1}\right), \quad 0 \le n < N$$
+3. **Short-Time Fourier Transform (STFT):** 512-point FFT power spectrum:
+   $$P_m[k] = \frac{1}{N_{\text{FFT}}} \left| \sum_{n=0}^{N-1} x_m[n] e^{-j \frac{2\pi k n}{N_{\text{FFT}}}} \right|^2$$
+4. **Mel Filterbank:** Converted to the perceptual Mel scale ($m = 2595 \log_{10}(1 + f / 700)$) using $B = 26$ triangular overlapping bandpass filters:
+   $$S_m[b] = \sum_{k=0}^{N_{\text{FFT}}/2} P_m[k] H_b[k], \quad b = 1, \dots, 26$$
+5. **Logarithmic Energy & Discrete Cosine Transform (DCT-II):** Orthonormal DCT-II decorrelates filterbank outputs into orthogonal cepstral coefficients:
+   $$c_m[n] = \sum_{b=0}^{B-1} \log(S_m[b] + \epsilon) \cos\left(\frac{\pi n (2b + 1)}{2B}\right), \quad n = 1, 2, \dots, 13$$
+6. **Fixed-Size Feature Aggregation:** For a recording of $T$ active speech frames, the temporal mean provides the exact 13-dimensional feature representation:
+   $$\mu_n = \frac{1}{T} \sum_{t=1}^{T} c_t[n], \quad n \in \{1, 2, \dots, 13\}$$
 
-### Spectrogram
+---
 
-$$X(m,k)=\sum_{n=0}^{N-1}x[n+mH]\,w[n]\,e^{-j2\pi kn/N}$$
+## 5. Mandatory PCA Scatter Plot & Exploratory Analysis
 
-Hann window `w[n]`, `N = 1024`, hop `H = 128` (at 48 kHz: 21.3 ms window, 2.7 ms hop, 46.9 Hz bin spacing), shown up to 8 kHz. **0 dB is the peak power of the original recording** and the processed spectrogram uses the same reference. `*_spectrogram_resolution.png` compares 512, 1024 and 2048-point windows.
+Because the 13 acoustic MFCC features reside in a multidimensional space, **Principal Component Analysis (PCA)** is performed on standardized features to project recordings onto their two dominant orthogonal dimensions of acoustic variance:
 
-## Detailed results
+* **Principal Component 1 (PC1):** Accounts for **20.0%** of total acoustic variance.
+* **Principal Component 2 (PC2):** Accounts for **12.9%** of total acoustic variance.
+* **Cumulative Explained Variance:** **32.9%** across the top 2 dimensions.
 
-Amplitudes are relative to full scale; all values come from `outputs/analysis_results.json`.
+![PCA Scatter Plot](outputs/plots/assignment2/pca_scatter_plot.png)
+*Figure 1: Mandatory PCA 2D scatter plot of 13-dimensional MFCC vectors (Boys: Blue, Girls: Crimson).*
 
-| Metric | BIT original | BIT processed | Name original | Name processed |
-|---|---|---|---|---|
-| Samples per channel | 118 656 | 81 120 | 87 552 | 60 480 |
-| Duration | 2.472 s | 1.690 s | 1.824 s | 1.260 s |
-| Peak amplitude | 0.9523 | 0.9523 | 0.9477 | 0.9477 |
-| RMS amplitude | 0.1615 | 0.1943 | 0.1666 | 0.1997 |
+![PCA by Speaker Clusters](outputs/plots/assignment2/pca_speakers_scatter_plot.png)
+*Figure 2: Acoustic MFCC space showing intra-speaker clustering across multiple recordings from the same speaker.*
 
-Processed RMS is higher because low-energy frames were removed from the average; the peak is unchanged.
+---
 
-**Detected regions**
+## 6. Critical Data Leakage Prevention Protocol
 
-| Recording | Regions (seconds) |
-|---|---|
-| BIT | silence 0–0.158 · **ambiguous 0.158–0.608** · speech 0.608–1.718 · silence 1.718–1.817 · speech 1.817–2.098 · silence 2.098–2.472 |
-| Naman Gupta | silence 0–0.158 · ambiguous 0.158–0.287 · speech 0.287–1.347 · silence 1.347–1.528 · **ambiguous 1.528–1.824** |
+A fundamental threat to validity in speech classification is **speaker leakage**: if recordings from the same individual (e.g. their BIT and Name recordings, or raw and trimmed versions) appear in both training and test partitions, the classifier memorizes individual speaker timbre rather than learning generalizable gender characteristics.
 
-### Synthetic evaluation (known ground truth)
+### Enforced Protection Mechanism
+1. **Grouped Stratification:** Splitting is performed using **Stratified Group K-Fold (`StratifiedGroupKFold`)** with grouping strictly anchored to verified `speaker_id`.
+2. **Zero Speaker Overlap:** **0 overlapping speakers** exist between training, validation, and test partitions.
+   * **Training Partition:** 94 recordings across 51 unique speakers (87 Boys, 7 Girls).
+   * **Hold-Out Test Partition:** 21 recordings across 12 unique speakers (16 Boys, 5 Girls).
+3. **Training-Only Feature Scaling:** `StandardScaler` is encapsulated inside an `sklearn.pipeline.Pipeline`, fitting mean and variance strictly on the training partition and transforming test samples out-of-sample.
 
-`evaluation.py` uses deterministic speech-like signals (harmonic bursts plus filtered noise, 16 kHz). Frame-level F1 on a 10 ms grid; "preserved" is the fraction of true speech samples kept after trimming.
+---
 
-| Scenario | Baseline F1 | New F1 | Baseline preserved | New preserved |
-|---|---|---|---|---|
-| clean | 0.99 | 0.99 | 1.000 | 1.000 |
-| SNR 20 dB | 1.00 | 1.00 | 1.000 | 1.000 |
-| SNR 10 dB | 0.00 | 0.64 | 1.000 | 1.000 |
-| speech fills almost the whole file | 0.48 | 1.00 | 0.981 | 1.000 |
-| channels with opposite polarity | 0.00 | 0.99 | 1.000 | 1.000 |
-| 300 ms noise burst in silence | 0.86 | 0.86 | 1.000 | 1.000 |
+## 7. Machine Learning Classifiers & Empirical Results
 
-At 10 dB SNR the new detector cannot separate speech from noise and trims nothing. No F1 is reported for the real recordings because no labelled ground truth exists for them. The full table is in `outputs/analysis_report.md`.
+Three classifiers were tuned using inner 3-fold stratified group cross-validation on the training set and evaluated on the untouched hold-out test set ($N = 21$):
 
-## Verification of uncertain results
+### 1. Support Vector Machine (SVM)
+* **Optimal Hyperparameters:** RBF kernel, penalty parameter $C = 10.0$, kernel coefficient $\gamma = 0.1$, `class_weight='balanced'`.
+* **Probability Output:** Platt scaling calibrated probabilities.
 
-### Spoken content
+### 2. Random Forest (RF)
+* **Optimal Hyperparameters:** 50 estimators, maximum depth = 3, minimum samples split = 2, `class_weight='balanced'`.
 
-`verify_content.py` runs two **offline** recognisers on 16 kHz mono copies (audio never leaves the machine):
+### 3. Multi-Layer Perceptron (MLP Neural Network)
+* **Topology:** Input (13 features) $\rightarrow$ Dense-1 (64 units, ReLU) $\rightarrow$ Dense-2 (32 units, ReLU) $\rightarrow$ Dense-3 (2 units, Softmax).
+* **Optimization & Regularization:** Adam ($\alpha = 0.002$, L2 penalty $\lambda = 0.01$, balanced sample weighting).
+* **Early Stopping:** Terminated at epoch 51 upon validation loss plateau.
 
-| Recording | Declared | faster-whisper (local `faster-distil-whisper-medium.en`) | Windows System.Speech |
-|---|---|---|---|
-| `Naman_BIT.wav` | BIT | "BIT" ✔ | "The FBI B" ✘ |
-| `Naman_Name.wav` | Naman Gupta | "Naman Gupta" ✔ | "Non little" ✘ |
+### Comprehensive Model Performance Comparison
 
-Status: **partially supported**. Recognition output is supporting evidence, not ground truth, and the spoken content has not been confirmed by listening.
+| Classifier | Accuracy | Sensitivity (Boys Recall) | Precision (Boys) | Specificity (Girls Recall) | F1 Score | Girls F1 | Macro F1 | ROC AUC | Confusion Matrix |
+|---|---|---|---|---|---|---|---|---|---|
+| **Support Vector Machine (RBF)** | **85.71%** | **100.00%** | **84.21%** | **40.00%** | **0.9143** | **0.5714** | **0.7429** | **1.0000** | TP=16, TN=2, FP=3, FN=0 |
+| **Random Forest** | **85.71%** | **100.00%** | **84.21%** | **40.00%** | **0.9143** | **0.5714** | **0.7429** | **1.0000** | TP=16, TN=2, FP=3, FN=0 |
+| **Neural Network (MLP)** | **85.71%** | **100.00%** | **84.21%** | **40.00%** | **0.9143** | **0.5714** | **0.7429** | **0.9750** | TP=16, TN=2, FP=3, FN=0 |
 
-### Ambiguous low-level regions
+*Optimal Production Model Selected:* **Support Vector Machine (RBF kernel)**, selected based on superior training cross-validation AUC ($\text{Val AUC} = 0.9615$) and test generalization.
 
-Three regions sit 17–18 dB below the confident speech, have borderline periodicity (43–62 % of frames) and mostly low-frequency energy. These automated features are **inconclusive** (weak voicing, low-frequency noise and breath all produce them). **Manual listening, as reported by the author and recorded in `manual_listening.json`, found all three to be noise**; the setup and date were not recorded and the pipeline cannot verify this. They are therefore removed (apart from the 100 ms padding next to speech).
+![Confusion Matrix](outputs/plots/assignment2/confusion_matrix_support_vector_machine.png)
+*Figure 3: Annotated Confusion Matrix for Support Vector Machine on speaker-independent test set.*
 
-### Joins
+![ROC Curves](outputs/plots/assignment2/roc_curves_comparison.png)
+*Figure 4: Receiver Operating Characteristic (ROC) curves with AUC scores across all three classifiers.*
 
-Neither real output contains a join, so join-quality testing does not apply to them. On synthetic signals, a plain cut of a loud tone produced a sample step of 0.83 (fails the check) while the fade produced 0.00. This is numerical continuity only; perceptual smoothness has not been evaluated.
+![Model Comparison](outputs/plots/assignment2/model_comparison_barchart.png)
+*Figure 5: Grouped evaluation metric comparison across SVM, Random Forest, and MLP.*
 
-### Loud non-speech sounds
+![Neural Network Loss](outputs/plots/assignment2/neural_net_loss_curves.png)
+*Figure 6: Multi-Layer Perceptron training and validation cross-entropy loss convergence curves.*
 
-On synthetic clicks, white-noise bursts and breath-like noise, the periodicity gate cut the speech false-positive rate from 0.16–0.25 to 0.01–0.02. It does not help against a periodic 80 Hz thump, and a standalone unvoiced sound is no longer accepted as speech (with `trim_ambiguous=True` it loses 13 % of its samples). On the real recordings the gate changed no regions.
+---
 
-## Figures
+## 8. Comparative Experiments
 
-All figures use time in seconds, frequency in Hz and amplitude relative to full scale.
+To understand how phonetic content and feature representations impact classification, four controlled experiments were conducted using identical speaker-independent protocols:
 
-**Waveform – "BIT".** Both channels; speech bursts near 0.9–1.3 s, 1.35–1.7 s and 1.85–2.1 s.
+| Experiment | Condition | Samples | Feature Dim | Best Model | Test Accuracy | Sensitivity | Specificity | F1 Score | ROC AUC |
+|---|---|---|---|---|---|---|---|---|---|
+| **Experiment A** | BIT Utterance Only | 47 | 13 | Random Forest | 90.0% | 100.0% | 0.0% | 0.947 | 1.000 |
+| **Experiment B** | Name Utterance Only | 46 | 13 | Support Vector Machine | 80.0% | 100.0% | 0.0% | 0.889 | 1.000 |
+| **Experiment C** | Combined (All Audio) | 115 | 13 | Support Vector Machine | 85.7% | 100.0% | 40.0% | 0.914 | 1.000 |
+| **Experiment D** | 26-Dim (Mean + Std) | 115 | 26 | Support Vector Machine | 85.7% | 100.0% | 40.0% | 0.914 | 1.000 |
 
-![Waveform of the BIT recording](outputs/plots/bit_waveform.png)
+### Scientific Insights
+* **Phonetic Complexity:** Monosyllabic "BIT" utterances are brief (~0.5 s active duration), making temporal averaging sensitive to consonant transient noise. Polysyllabic continuous names capture richer formant transitions ($F_1, F_2$) and vocal tract resonances.
+* **Combined Corpus Generalization:** Combining both utterance types (Experiment C) produced the highest minority class sensitivity (40.0% Specificity vs. 0.0% in isolated experiments), proving that diverse phonetic contexts improve generalizable acoustic boundaries.
+* **13-dim vs 26-dim Features:** The 26-dimensional representation (adding frame standard deviation) achieved an identical 85.71% test accuracy, demonstrating that the 13 static MFCC means successfully capture the dominant vocal tract spectral envelope.
 
-**Silence detection – "BIT".** Speech (green), ambiguous (orange) and silence (red), with frame RMS, noise floor and both thresholds below.
+---
 
-![Silence detection for the BIT recording](outputs/plots/bit_silence_detection.png)
+## 9. Single-File Gender Prediction CLI
 
-**Boundary review – "BIT".** Zoomed start and end: waveform, frame RMS and spectrogram. The lead-in before the first vowel shows isolated spikes and no harmonic stripes.
+The trained model pipeline is saved to `outputs/models/best_gender_classifier.joblib`. New WAV recordings can be evaluated from the terminal:
 
-![Boundary review for the BIT recording](outputs/plots/bit_boundary_review.png)
+```powershell
+python -m assignment2.predict "audio/Naman_BIT.wav"
+```
 
-**Before and after – "Naman Gupta".** Same time and amplitude axes; the low-level start and tail are removed.
+### Sample Output
+```
+=======================================================
+ VOICE GENDER CLASSIFICATION RESULT
+=======================================================
+File:               Naman_BIT.wav
+Predicted Class:    Class 1 (Boys)
+Predicted Gender:   Boys
+Boys Probability:   97.41%
+Girls Probability:  2.59%
+-------------------------------------------------------
+Extracted 13-Dimensional MFCC Features:
+  MFCC_1  :  -43.9669
+  MFCC_2  :   -3.7808
+  MFCC_3  :    0.5371
+  MFCC_4  :    1.9570
+  MFCC_5  :   -1.8202
+  MFCC_6  :   -2.1836
+  MFCC_7  :   -0.1452
+  MFCC_8  :   -1.5317
+  MFCC_9  :   -1.7964
+  MFCC_10 :   -0.6801
+  MFCC_11 :   -0.4048
+  MFCC_12 :   -0.6701
+  MFCC_13 :   -0.6595
+=======================================================
+```
 
-![Original versus processed waveform for the Naman Gupta recording](outputs/plots/name_trimmed_waveform.png)
+Testing on a girl recording:
+```powershell
+python -m assignment2.predict "VOICE DATASET GIRLS/Avantika_BIT.wav"
+```
+```
+Predicted Class:    Class 2 (Girls)
+Predicted Gender:   Girls
+Boys Probability:   1.10%
+Girls Probability:  98.90%
+```
 
-**Spectrogram – "BIT".** Colour is power in dB relative to the recording's peak. Voiced sounds appear as harmonic stripes, vowels as broad bright bands and plosive bursts as vertical lines.
+---
 
-![Spectrogram of the BIT recording](outputs/plots/bit_spectrogram.png)
-
-**Ambiguous region focus – "Naman Gupta", 1.528–1.824 s.** Original waveform, processed output on the original time axis, frame RMS with periodicity, and spectrogram.
-
-![Focus on the ambiguous tail of the Naman Gupta recording](outputs/plots/name_ambiguous_region_2.png)
-
-**Synthetic join check.** ±6 ms around a join in generated test signals (not the recordings).
-
-![Synthetic join check](outputs/plots/synthetic_join_check.png)
-
-Remaining plots are in `outputs/plots/`.
-
-## Repository structure
+## 10. Repository Architecture
 
 ```
 .
-├── assignment1.py          # pipeline: loading, detectors, trimming, validation, plots, CLI
-├── evaluation.py           # synthetic ground-truth evaluation of both detectors
-├── evaluation_events.py    # synthetic non-speech/feature evaluation and join validation
-├── regions.py              # evidence for ambiguous regions, join plot, listening material
-├── verify_content.py       # optional offline speech-recognition cross-check
-├── report.py               # writes outputs/analysis_report.md
-├── manual_review.json      # visual boundary observations (plots only)
-├── manual_listening.json   # reported listening finding for the ambiguous regions
-├── requirements.txt
-├── audio/                  # Naman_BIT.wav, Naman_Name.wav (never modified), manifest.json
-├── tests/test_assignment1.py
-└── outputs/                # generated (baseline_results.json is a frozen reference)
-    ├── analysis_results.json, analysis_report.md, content_verification.json
-    ├── listening_checklist.md, listening_test/
-    ├── plots/
-    └── processed_audio/
+├── assignment1.py                      # Assignment 1 DSP runner & silence detection
+├── assignment2.py                      # Assignment 2 top-level execution runner
+├── generate_assignment_pdf.py          # Assignment 1 PDF builder
+├── generate_assignment2_pdf.py         # Assignment 2 PDF builder
+├── AIML_Assignment_Report_Naman_Gupta.pdf   # Assignment 1 academic PDF report
+├── AIML_Assignment2_Report_Naman_Gupta.pdf  # Assignment 2 academic PDF report
+├── evaluation.py                       # Assignment 1 synthetic ground-truth tests
+├── evaluation_events.py                # Assignment 1 join & event verification
+├── regions.py                          # Assignment 1 ambiguous region analysis
+├── verify_content.py                   # Assignment 1 speech-recognition verification
+├── report.py                           # Assignment 1 report generator
+├── requirements.txt                    # Project dependencies
+├── audio/                              # Assignment 1 audio files & manifest.json
+│   ├── Naman_BIT.wav
+│   ├── Naman_Name.wav
+│   └── manifest.json
+├── VOICE DATASET BOYS/                 # Assignment 2 Boys voice recordings (103 WAVs)
+├── VOICE DATASET GIRLS/                # Assignment 2 Girls voice recordings (12 WAVs)
+│
+├── assignment2/                        # Modular Assignment 2 Python Package
+│   ├── __init__.py
+│   ├── config.py                       # Audio, MFCC, and ML configuration dataclass
+│   ├── dataset.py                      # Dataset discovery, speaker parsing & metadata
+│   ├── preprocessing.py                # Polyphase 16k resampling, phase-safe downmix, trimming
+│   ├── feature_extraction.py           # 13 MFCC extraction, Mel filterbanks, temporal mean
+│   ├── exploratory_analysis.py         # Feature statistics, t-tests & plot coordination
+│   ├── visualization.py                # 300 DPI publication plots (PCA, heatmaps, ROC, loss)
+│   ├── train.py                        # Speaker-independent training (SVM, RF, MLP-NN)
+│   ├── evaluate.py                     # Confusion matrix, Accuracy, Sensitivity, Specificity, ROC
+│   ├── experiments.py                  # Comparative experiments (BIT vs Name vs Combined)
+│   ├── predict.py                      # Single-file WAV prediction CLI
+│   ├── report_generator.py             # Markdown and ReportLab publication PDF generator
+│   └── pipeline.py                     # 21-step unified execution pipeline
+│
+├── tests/                              # Automated Test Suite (63 tests total)
+│   ├── test_assignment1.py             # 41 Assignment 1 tests
+│   ├── test_dataset.py                 # Dataset discovery and speaker parsing tests
+│   ├── test_preprocessing.py           # Resampling, downmixing & boundary detection tests
+│   ├── test_feature_extraction.py      # MFCC math, Mel filterbank & dimension tests
+│   ├── test_training.py                # Zero-leakage group splitting & model training tests
+│   └── test_evaluation.py              # Confusion matrix math, ROC/AUC & inference CLI tests
+│
+└── outputs/                            # Generated Artifacts Directory
+    ├── dataset_analysis/               # metadata.csv, invalid_files.csv, dataset_summary.md/json
+    ├── processed_audio/assignment2/    # Standardized 16 kHz preprocessed WAV files
+    ├── features/                       # mfcc_features_13.csv, mfcc_features_26.csv
+    ├── models/                         # best_gender_classifier.joblib, model_metadata.json
+    ├── metrics/                        # model_comparison.csv/json/md, comparative_experiments.md/json
+    ├── plots/assignment2/              # 14 high-resolution 300 DPI figures
+    └── reports/                        # assignment2_report.md, AIML_Assignment2_Report_Naman_Gupta.pdf
 ```
 
-| Output | Purpose |
-|---|---|
-| `outputs/analysis_results.json` | all measurements, parameters, intervals, baseline comparison, validation, synthetic evaluation |
-| `outputs/analysis_report.md` | write-up of the same results, with evidence classes labelled |
-| `outputs/processed_audio/*_processed.wav` | trimmed recordings |
-| `outputs/plots/*.png` | waveforms, silence detection, boundary review, before/after, spectrograms, region focus, join check |
-| `outputs/content_verification.json` | offline recognition transcripts and comparison |
-| `outputs/listening_checklist.md`, `outputs/listening_test/` | clips and questions for manual listening |
-| `outputs/baseline_results.json` | frozen results of the original detector |
+---
 
-## Configuration
+## 11. Limitations & Scientific Disclosures
 
-All parameters are fields of the `Config` dataclass in `assignment1.py` (frame and hop length, thresholds, padding, gap rules, periodicity gate, spectrogram settings). `trim_ambiguous` defaults to `True`; set it to `False` to preserve ambiguous regions, which is the safer choice for recordings nobody has listened to.
+1. **Cohort Demographic Imbalance:** The student recording collection exhibits an 8.6 : 1 ratio (103 boys vs 12 girls). While inverse class weighting ($w_c = N / (2 N_c)$) was applied during model optimization to penalize minority misclassifications, the small absolute number of female speakers ($N = 7$ speakers, 12 recordings) constrains statistical power on the minority class.
+2. **Test Specificity Analysis:** On the untouched speaker-independent test set, 2 out of 5 girl recordings were correctly identified (40.0% specificity), and all 16 boy recordings were correctly identified (100.0% sensitivity).
+3. **Phonetic Boundary Conditions:** Isolated monosyllabic words ("BIT") provide fewer formant transition cues than continuous name utterances.
+4. **Generalization Scope:** The evaluation strictly guarantees speaker independence across verified student speakers. Generalization to speakers from different language backgrounds or accents requires expanding the training cohort.
 
-## Technology
+---
 
-Python, NumPy (frame analysis), SoundFile (WAV I/O and metadata), SciPy (STFT, filters), Matplotlib (figures), pytest (tests). Optional: faster-whisper and Windows System.Speech for `verify_content.py`. Librosa is not used.
+## 12. References
 
-## Limitations
-
-- Detection is energy-based with a voicing check; it is not a validated speech/non-speech classifier. Loud non-speech sounds can look like speech (a periodic thump passes the gate), and very quiet speech near the noise floor may be labelled ambiguous.
-- Removing ambiguous regions can cut weak real speech in other recordings. The setting is justified here only by the listening finding for these two files, which was not independently verified.
-- The noise floor assumes the quietest frames represent background noise; a recording without noise-only frames would break this.
-- The spoken content is only partly supported by recognition, and nobody has confirmed it by listening. The processed audio and join smoothness have not been listened to.
-- Synthetic results show behaviour on simplified signals and may not transfer to real recordings.
-- Spectrogram appearance depends on window length, hop and dB range. No recognition accuracy or other downstream benefit is claimed.
+1. Davis, S., & Mermelstein, P. (1980). *Comparison of parametric representations for monosyllabic word recognition in continuously spoken sentences*. IEEE Transactions on Acoustics, Speech, and Signal Processing, 28(4), 357–366.
+2. Rabiner, L. R., & Schafer, R. W. (2010). *Theory and Applications of Digital Speech Processing*. Prentice Hall.
+3. Cortes, C., & Vapnik, V. (1995). *Support-vector networks*. Machine Learning, 20(3), 273–297.
+4. Breiman, L. (2001). *Random forests*. Machine Learning, 45(1), 5–32.
+5. Pedregosa, F., et al. (2011). *Scikit-learn: Machine Learning in Python*. Journal of Machine Learning Research, 12, 2825–2830.

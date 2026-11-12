@@ -1,0 +1,34 @@
+file_id,filename,parent_dir,audio_path,reason,format_detected
+REC_0009,ADITYA_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\ADITYA_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0010,ADITYA_NAME.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\ADITYA_NAME.mp3,Non-WAV extension (.mp3),MP3
+REC_0012,aiml wav 1,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\aiml wav 1,Non-WAV extension (missing extension),WAV
+REC_0013,aiml wav 2,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\aiml wav 2,Non-WAV extension (missing extension),WAV
+REC_0014,Akshit_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Akshit_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0015,Akshit_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Akshit_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0030,Anshuman_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Anshuman_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0031,Anshuman_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Anshuman_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0040,Aryaman_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Aryaman_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0041,Aryaman_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Aryaman_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0049,Dipanshu_BIT & Dipanshu_NAME.mp4,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Dipanshu_BIT & Dipanshu_NAME.mp4,Non-WAV extension (.mp4),Unknown/Unreadable
+REC_0050,Divyanshu_Kumar_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Divyanshu_Kumar_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0051,Divyanshu_Kumar_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Divyanshu_Kumar_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0055,Hardik_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Hardik_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0056,Hardik_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Hardik_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0068,Manas_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Manas_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0069,Manas_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Manas_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0070,MAYUR_BIT.m4a.mpeg,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\MAYUR_BIT.m4a.mpeg,Non-WAV extension (.mpeg),Unknown/Unreadable
+REC_0071,MAYUR_NAME.m4a.mp4,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\MAYUR_NAME.m4a.mp4,Non-WAV extension (.mp4),Unknown/Unreadable
+REC_0078,PranavRanjan_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\PranavRanjan_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0079,PranavRanjan_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\PranavRanjan_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0083,PRATYUSH_KUMAR_BIT&PRATYUSH_KUMAR_NAME.m4a,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\PRATYUSH_KUMAR_BIT&PRATYUSH_KUMAR_NAME.m4a,Non-WAV extension (.m4a),Unknown/Unreadable
+REC_0091,Rajvir_BIT.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Rajvir_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0092,Rajvir_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Rajvir_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0118,Shreya_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Shreya_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0119,Siddharth_BIT & Siddharth_Name.mp3,VOICE DATASET BOYS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET BOYS\Siddharth_BIT & Siddharth_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0136,PALAK_BIT.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\PALAK_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0137,PALAK_NAME.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\PALAK_NAME.mp3,Non-WAV extension (.mp3),MP3
+REC_0138,Pari_BIT.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\Pari_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0139,Pari_Name.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\Pari_Name.mp3,Non-WAV extension (.mp3),MP3
+REC_0144,Shreya_BIT.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\Shreya_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0145,Shristy_BIT.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\Shristy_BIT.mp3,Non-WAV extension (.mp3),MP3
+REC_0146,Shristy_NAME.mp3,VOICE DATASET GIRLS,C:\Users\naman\OneDrive\Desktop\assignment\VOICE DATASET GIRLS\Shristy_NAME.mp3,Non-WAV extension (.mp3),MP3

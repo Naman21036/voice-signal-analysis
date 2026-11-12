@@ -1,0 +1,83 @@
+[
+  {
+    "model_name": "Support Vector Machine",
+    "tp": 16,
+    "tn": 5,
+    "fp": 0,
+    "fn": 0,
+    "accuracy": 1.0,
+    "sensitivity": 1.0,
+    "precision": 1.0,
+    "specificity": 1.0,
+    "f1_score": 1.0,
+    "girls_precision": 1.0,
+    "girls_recall": 1.0,
+    "girls_f1": 1.0,
+    "macro_f1": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix": [
+      [
+        16,
+        0
+      ],
+      [
+        0,
+        5
+      ]
+    ]
+  },
+  {
+    "model_name": "Random Forest",
+    "tp": 16,
+    "tn": 1,
+    "fp": 4,
+    "fn": 0,
+    "accuracy": 0.8095238095238095,
+    "sensitivity": 1.0,
+    "precision": 0.8,
+    "specificity": 0.2,
+    "f1_score": 0.888888888888889,
+    "girls_precision": 1.0,
+    "girls_recall": 0.2,
+    "girls_f1": 0.33333333333333337,
+    "macro_f1": 0.6111111111111112,
+    "roc_auc": 1.0,
+    "confusion_matrix": [
+      [
+        16,
+        0
+      ],
+      [
+        4,
+        1
+      ]
+    ]
+  },
+  {
+    "model_name": "Neural Network (MLP)",
+    "tp": 16,
+    "tn": 4,
+    "fp": 1,
+    "fn": 0,
+    "accuracy": 0.9523809523809523,
+    "sensitivity": 1.0,
+    "precision": 0.9411764705882353,
+    "specificity": 0.8,
+    "f1_score": 0.9696969696969697,
+    "girls_precision": 1.0,
+    "girls_recall": 0.8,
+    "girls_f1": 0.888888888888889,
+    "macro_f1": 0.9292929292929293,
+    "roc_auc": 0.9875,
+    "confusion_matrix": [
+      [
+        16,
+        0
+      ],
+      [
+        1,
+        4
+      ]
+    ]
+  }
+]

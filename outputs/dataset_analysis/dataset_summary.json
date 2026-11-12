@@ -1,0 +1,34 @@
+{
+  "total_recordings": 115,
+  "boys_recordings": 103,
+  "girls_recordings": 12,
+  "total_duration_s": 286.18630810657606,
+  "average_duration_s": 2.4885765922310963,
+  "std_duration_s": 1.7316828604824914,
+  "min_duration_s": 0.46113378684807255,
+  "max_duration_s": 10.197333333333333,
+  "sampling_rate_distribution": {
+    "48000": 72,
+    "44100": 31,
+    "16000": 10,
+    "22050": 2
+  },
+  "channel_distribution": {
+    "Mono": 86,
+    "Stereo": 29,
+    "Multi": 0
+  },
+  "num_invalid_files": 33,
+  "num_duplicate_files_by_hash": 0,
+  "num_identifiable_speakers": {
+    "boys": 56,
+    "girls": 7,
+    "total": 63
+  },
+  "utterance_distribution": {
+    "BIT": 47,
+    "Name": 46,
+    "Both": 19,
+    "Unspecified": 3
+  }
+}

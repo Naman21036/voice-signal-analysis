@@ -3,4 +3,9 @@ scipy
 soundfile
 matplotlib
 pytest
+# Assignment 2 additions:
+scikit-learn
+seaborn
+joblib
 # optional (verify_content.py only): faster-whisper, plus a locally cached Whisper model; Windows System.Speech needs no install
+# optional (generate_assignment_pdf.py & assignment2 PDF only): reportlab, pygments, pillow, pymupdf

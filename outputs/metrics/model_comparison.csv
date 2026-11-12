@@ -1,0 +1,4 @@
+Model,Accuracy,Sensitivity,Precision,Specificity,F1 Score,Girls Precision,Girls Recall,Girls F1,Macro F1,ROC AUC,TP,TN,FP,FN
+Support Vector Machine,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,16,5,0,0
+Random Forest,0.8095,1.0000,0.8000,0.2000,0.8889,1.0000,0.2000,0.3333,0.6111,1.0000,16,1,4,0
+Neural Network (MLP),0.9524,1.0000,0.9412,0.8000,0.9697,1.0000,0.8000,0.8889,0.9293,0.9875,16,4,1,0
