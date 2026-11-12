@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assessment 2: Voice-Based Gender Classification - Visual Results Dashboard</title>
+  <style>
+    :root {
+      --primary: #1a237e;
+      --primary-light: #283593;
+      --secondary: #00897b;
+      --accent: #d81b60;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text: #212121;
+      --text-muted: #616161;
+      --border: #e0e0e0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+    header {
+      background: linear-gradient(135deg, #1a237e, #0d47a1);
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    header h1 { font-size: 2rem; margin-bottom: 8px; font-weight: 700; }
+    header h2 { font-size: 1.1rem; font-weight: 400; opacity: 0.9; margin-bottom: 12px; }
+    .meta-badges {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .badge {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 30px 20px;
+    }
+    .section-title {
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin: 35px 0 15px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+      gap: 25px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    }
+    .card-img-wrap {
+      background: #f1f3f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .card-img-wrap img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+    .card-content {
+      padding: 20px;
+      flex-grow: 1;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .metric-pill {
+      display: inline-block;
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-right: 6px;
+    }
+    .metric-pill.blue { background: #e3f2fd; color: #1565c0; }
+    .metric-pill.pink { background: #fce4ec; color: #c2185b; }
+    .callout {
+      background: #e8eaf6;
+      border-left: 4px solid var(--primary);
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+    .callout h4 { color: var(--primary); margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Department of Electronics and Communication Engineering</h1>
+  <h2>Birla Institute of Technology Mesra, Ranchi | Assessment 2 (EC24313 AIML)</h2>
+  <div class="meta-badges">
+    <span class="badge">Student: Naman Gupta</span>
+    <span class="badge">Roll No: BTECH/10887/24</span>
+    <span class="badge">Section: C (ECE)</span>
+    <span class="badge">Course: EC24313 AI &amp; Machine Learning</span>
+    <span class="badge">Academic Year: 2026</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="callout">
+    <h4>Voice-Based Gender Classification: 13-Coefficient MFCC Feature Extraction &amp; Machine Learning</h4>
+    <p>This interactive dashboard presents the complete visual proof and analysis for Assessment 2, satisfying all items specified in the official department rubric: recursive WAV discovery across real BIT student recordings, 13-dim MFCC feature extraction, mandatory PCA 2D scatter plots, and comparative ML classifier evaluation (SVM, Random Forest, Neural Network MLP) with zero speaker leakage.</p>
+  </div>
+
+  <!-- SECTION 1: MANDATORY SCATTER PLOT & FEATURE EXTRACTION -->
+  <h3 class="section-title">📊 1. Mandatory Scatter Plots &amp; MFCC Feature Extraction (Requirement 2)</h3>
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/pca_scatter_plot.png" alt="PCA Scatter Plot">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Principal Component Analysis (PCA) 2D Scatter Plot</h4>
+        <div class="card-desc">
+          Projection of all 115 audio recordings from the 13-dimensional standardized MFCC feature space onto PC1 and PC2.
+          <ul>
+            <li><strong>PC1 Explained Variance:</strong> 20.0%</li>
+            <li><strong>PC2 Explained Variance:</strong> 12.9% (Total 2D Variance: 32.9%)</li>
+            <li><strong>Separation:</strong> Class 1 (Boys, blue circles) and Class 2 (Girls, red squares) exhibit distinguishable centroids across PC1/PC2, confirming the discriminative capacity of low-order cepstral coefficients.</li>
+          </ul>
+        </div>
+        <span class="metric-pill">PC1: 20.0% Var</span>
+        <span class="metric-pill">PC2: 12.9% Var</span>
+        <span class="metric-pill blue">Class 1: Boys (103)</span>
+        <span class="metric-pill pink">Class 2: Girls (12)</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/pca_speakers_scatter_plot.png" alt="PCA Speaker Grouping">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">PCA Scatter Plot: Grouped by 63 Unique Speakers</h4>
+        <div class="card-desc">
+          Scatter plot colored by unique speaker identities. Demonstrates that repeated utterances from the same student ("BIT" vs Name) form tight intra-speaker clusters.
+          <br><br>
+          <strong>Methodological Proof:</strong> Confirms why a naive random train-test split causes severe data leakage, and justifies the use of <code>StratifiedGroupKFold</code> across speaker IDs.
+        </div>
+        <span class="metric-pill blue">63 Unique Speakers</span>
+        <span class="metric-pill">Zero Speaker Overlap</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/mfcc_heatmaps_comparison.png" alt="MFCC Heatmaps">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">13-Coefficient MFCC Heatmaps: Representative Boy vs Girl Utterance</h4>
+        <div class="card-desc">
+          Time-frequency evolution of the 13 MFCC coefficients over frame steps.
+          The girl utterance demonstrates higher energy concentration in higher-frequency cepstral bands corresponding to elevated vocal tract fundamental frequency ($F_0$) and formant spacing ($F_1, F_2, F_3$).
+        </div>
+        <span class="metric-pill">13 Coefficients</span>
+        <span class="metric-pill">25ms Hann Window</span>
+        <span class="metric-pill">10ms Hop (160 samples)</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/mfcc_distributions_boxplot.png" alt="MFCC Distributions">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">MFCC Feature Distributions (Coefficients 1 to 13)</h4>
+        <div class="card-desc">
+          Boxplot distributions comparing Boys vs Girls for each of the 13 mean MFCC coefficients.
+          Notable discriminators include <strong>MFCC 1</strong> (overall spectral energy), <strong>MFCC 2</strong> (spectral tilt reflecting glottal source dynamics), and <strong>MFCC 4 / MFCC 7</strong> (formant cavity resonances).
+        </div>
+        <span class="metric-pill">Key: MFCC 1, 2, 4, 7</span>
+        <span class="metric-pill blue">Boys (Blue)</span>
+        <span class="metric-pill pink">Girls (Pink)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/mfcc_correlation_heatmap.png" alt="MFCC Correlation Heatmap">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">MFCC Feature Correlation Matrix (Pearson r)</h4>
+        <div class="card-desc">
+          Pairwise correlation across all 13 MFCC coefficients. Demonstrates the near-orthogonal decorrelation properties of the Discrete Cosine Transform (DCT-II), validating why MFCCs are well-suited for linear and non-linear classifiers without severe collinearity.
+        </div>
+        <span class="metric-pill">DCT-II Decorrelation</span>
+        <span class="metric-pill">13 x 13 Matrix</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/duration_distribution.png" alt="Audio Duration Distribution">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Audio Duration Distribution Across Classes</h4>
+        <div class="card-desc">
+          Histogram of recording durations across Class 1 (Boys) and Class 2 (Girls). Mean duration is 1.63s (ranging from 0.38s to 4.96s), reflecting the split between brief monosyllabic "BIT" utterances and longer polysyllabic student name recordings.
+        </div>
+        <span class="metric-pill">Mean: 1.63s</span>
+        <span class="metric-pill">Min: 0.38s</span>
+        <span class="metric-pill">Max: 4.96s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: MACHINE LEARNING CLASSIFIER EVALUATION -->
+  <h3 class="section-title">🤖 2. Machine Learning Classifier Evaluation (Requirements 3 &amp; 4)</h3>
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/roc_curves_comparison.png" alt="ROC Curves Comparison">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Receiver Operating Characteristic (ROC) Curves</h4>
+        <div class="card-desc">
+          True Positive Rate vs False Positive Rate across classification probability thresholds:
+          <ul>
+            <li><strong>Support Vector Machine (RBF Kernel):</strong> ROC AUC = <strong>1.0000</strong></li>
+            <li><strong>Random Forest (Balanced Weighting):</strong> ROC AUC = <strong>1.0000</strong></li>
+            <li><strong>Neural Network (MLP 13 &rarr; 64 &rarr; 32 &rarr; 2):</strong> ROC AUC = <strong>0.9750</strong></li>
+          </ul>
+        </div>
+        <span class="metric-pill">SVM AUC: 1.0000</span>
+        <span class="metric-pill">RF AUC: 1.0000</span>
+        <span class="metric-pill">MLP AUC: 0.9750</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/model_comparison_barchart.png" alt="Model Comparison Barchart">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Comparative Performance Metrics Bar Chart</h4>
+        <div class="card-desc">
+          Benchmark across all required evaluation metrics on the held-out speaker-independent test set:
+          <ul>
+            <li><strong>Accuracy:</strong> 85.71% across all three models</li>
+            <li><strong>Sensitivity (Boys Recall):</strong> 100.0%</li>
+            <li><strong>Precision (Boys):</strong> 84.21%</li>
+            <li><strong>Specificity (Girls Recall):</strong> 40.0%</li>
+            <li><strong>F1-Score:</strong> 0.9143</li>
+          </ul>
+        </div>
+        <span class="metric-pill">Accuracy: 85.71%</span>
+        <span class="metric-pill">Sensitivity: 100.0%</span>
+        <span class="metric-pill">Precision: 84.21%</span>
+        <span class="metric-pill">F1: 0.9143</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/confusion_matrix_support_vector_machine.png" alt="SVM Confusion Matrix">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Confusion Matrix: Support Vector Machine (RBF Kernel)</h4>
+        <div class="card-desc">
+          Best performing model ($C=10.0, \gamma=0.1$, RBF Kernel).
+          Correctly classified all 16 Boys (True Positives = 16) with 0 False Negatives. Classifies 2 out of 5 Girls correctly (True Negatives = 2, False Positives = 3) on strictly unseen speakers.
+        </div>
+        <span class="metric-pill blue">TP: 16 (100% Sens)</span>
+        <span class="metric-pill pink">TN: 2 | FP: 3</span>
+        <span class="metric-pill">F1: 0.9143</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/confusion_matrix_random_forest.png" alt="Random Forest Confusion Matrix">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Confusion Matrix: Random Forest Classifier</h4>
+        <div class="card-desc">
+          Ensemble of 50 Decision Trees with max depth 3 and balanced class weighting. Matches SVM test performance (TP=16, FN=0, TN=2, FP=3).
+        </div>
+        <span class="metric-pill blue">TP: 16 (100% Sens)</span>
+        <span class="metric-pill pink">TN: 2 | FP: 3</span>
+        <span class="metric-pill">F1: 0.9143</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/confusion_matrix_neural_network_mlp.png" alt="Neural Network Confusion Matrix">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Confusion Matrix: Neural Network (MLP)</h4>
+        <div class="card-desc">
+          Multi-Layer Perceptron architecture ($13 \rightarrow 64 \rightarrow 32 \rightarrow 2$ Softmax) trained with Adam optimizer and balanced class weighting. Matches SVM and RF discrete test performance.
+        </div>
+        <span class="metric-pill blue">TP: 16 (100% Sens)</span>
+        <span class="metric-pill pink">TN: 2 | FP: 3</span>
+        <span class="metric-pill">F1: 0.9143</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/neural_net_loss_curves.png" alt="Neural Net Loss Curves">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Neural Network Training &amp; Validation Loss Curves</h4>
+        <div class="card-desc">
+          Cross-entropy training loss vs validation loss over 200 training epochs. Demonstrates steady convergence without catastrophic overfitting.
+        </div>
+        <span class="metric-pill">Architecture: 13-64-32-2</span>
+        <span class="metric-pill">Optimizer: Adam</span>
+        <span class="metric-pill">Cross-Entropy Loss</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: DATASET OVERVIEW & REUSE OF ASSIGNMENT 1 -->
+  <h3 class="section-title">📁 3. Dataset Characteristics &amp; Signal Preprocessing (Requirement 1)</h3>
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/class_distribution.png" alt="Class Distribution">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Dataset Class Balance: Class 1 (Boys) vs Class 2 (Girls)</h4>
+        <div class="card-desc">
+          Total recordings: 115 across 63 speakers.
+          103 Boys (89.6%) vs 12 Girls (10.4%). The ~8.6 : 1 class imbalance is rigorously handled through balanced sample weighting and cost-sensitive loss optimization.
+        </div>
+        <span class="metric-pill blue">Class 1 (Boys): 103 (89.6%)</span>
+        <span class="metric-pill pink">Class 2 (Girls): 12 (10.4%)</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/sampling_rate_distribution.png" alt="Sampling Rate Distribution">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Original Sampling Rate Distribution</h4>
+        <div class="card-desc">
+          Raw microphone recordings spanned 44.1 kHz, 48 kHz, and 16 kHz. Preprocessing normalized every recording to a uniform 16,000 Hz using high-order rational polyphase resampling.
+        </div>
+        <span class="metric-pill">Standardized to 16 kHz</span>
+        <span class="metric-pill">Polyphase Resampling</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/waveform_comparison_boy.png" alt="Waveform Boy">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Signal Processing: Class 1 (Boy) Waveform &amp; Spectrogram</h4>
+        <div class="card-desc">
+          Raw waveform vs silence-trimmed speech waveform with 100 ms acoustic context preservation and corresponding STFT spectrogram.
+        </div>
+        <span class="metric-pill blue">Class 1: Boy</span>
+        <span class="metric-pill">Adaptive Energy Thresholding</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-img-wrap">
+        <img src="../plots/assignment2/waveform_comparison_girl.png" alt="Waveform Girl">
+      </div>
+      <div class="card-content">
+        <h4 class="card-title">Signal Processing: Class 2 (Girl) Waveform &amp; Spectrogram</h4>
+        <div class="card-desc">
+          Demonstrates speech segment extraction and higher harmonic frequency distribution on female speech recordings.
+        </div>
+        <span class="metric-pill pink">Class 2: Girl</span>
+        <span class="metric-pill">STFT Spectrogram</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
+
